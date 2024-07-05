@@ -249,7 +249,26 @@ int hapd_state(const struct device *dev, int *state);
  * @param params AP parameters
  * @return 0 for OK; -1 for ERROR
  */
-int supplicant_ap_bandwidth(const struct device *dev, struct wifi_ap_params *params);
+int supplicant_ap_bandwidth(const struct device *dev, struct wifi_ap_params *params)
+
+#ifdef CONFIG_WIFI_NM_HOSTAPD_WPS
+/** Start AP wps pbc connection
+ *
+ * @param dev Pointer to the device structure for the driver instance.
+ *
+ * @return 0 if ok, < 0 if error
+ */
+int supplicant_ap_wps_pbc(const struct device *dev);
+
+/** Set or get AP wps pin
+ *
+ * @param dev Pointer to the device structure for the driver instance
+ * @param params wps pin operarion and pin number
+ *
+ * @return 0 if ok, < 0 if error
+ */
+int supplicant_ap_wps_pin(const struct device *dev, struct wifi_wps_pin_params *params);
+#endif
 #endif
 
 /**
