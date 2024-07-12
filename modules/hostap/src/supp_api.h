@@ -116,6 +116,25 @@ int supplicant_scan(const struct device *dev, struct wifi_scan_params *params,
 int supplicant_get_stats(const struct device *dev, struct net_stats_wifi *stats);
 #endif /* CONFIG_NET_STATISTICS_WIFI || __DOXYGEN__ */
 
+#ifdef CONFIG_WIFI_NM_WPA_SUPPLICANT_ROAMING
+/** Send specific scan request
+ *
+ * @param dev Pointer to the device structure for the driver instance.
+ * @param params Scan parameters
+ *
+ * @return 0 if ok, < 0 if error
+ */
+int supplicant_spec_scan(const struct device *dev, struct wifi_scan_params *params);
+
+/** Send 11r roaming request
+ *
+ * @param dev Pointer to the device structure for the driver instance.
+ *
+ * @return 0 if ok, < 0 if error
+ */
+int suppliant_11r_roaming(const struct device *dev);
+#endif
+
 /**
  * @brief Set Wi-Fi power save configuration
  *
