@@ -624,7 +624,8 @@ static int send_buf(struct bt_conn *conn, struct net_buf *buf,
 		return -EIO;
 	}
 
-	LOG_DBG("conn %p buf %p len %u buf->len %u", conn, buf, len, buf->len);
+	LOG_DBG("conn %p buf %p len %u buf->len %u cb %p ud %p",
+		conn, buf, len, buf->len, cb, ud);
 
 	/* Acquire the right to send 1 packet to the controller */
 	if (k_sem_take(bt_conn_get_pkts(conn), K_NO_WAIT)) {
@@ -849,7 +850,7 @@ static bool dont_have_viewbufs(void)
 #endif	/* CONFIG_BT_CONN_TX */
 }
 
-static bool dont_have_methods(struct bt_conn *conn)
+__maybe_unused static bool dont_have_methods(struct bt_conn *conn)
 {
 	return (conn->tx_data_pull == NULL) ||
 		(conn->get_and_clear_cb == NULL) ||
@@ -1035,7 +1036,6 @@ void bt_conn_tx_processor(void)
 
 	bool last_buf = conn_mtu(conn) >= buf_len;
 
-	/* TODO: add sdu_sent callback on last PDU */
 	if (last_buf) {
 		/* Only pull the callback info from the last buffer.
 		 * We still allocate one TX context per-fragment though.
@@ -1091,6 +1091,7 @@ static void process_unack_tx(struct bt_conn *conn)
 		node = sys_slist_get(&conn->tx_pending);
 
 		if (!node) {
+			bt_tx_irq_raise();
 			return;
 		}
 
@@ -1225,6 +1226,8 @@ void bt_conn_set_state(struct bt_conn *conn, bt_conn_state_t state)
 			     (K_WORK_QUEUED | K_WORK_DELAYED))) {
 				k_work_cancel_delayable(&conn->deferred_work);
 			}
+
+			bt_conn_reset_rx_state(conn);
 
 			LOG_DBG("trigger disconnect work");
 			k_work_reschedule(&conn->deferred_work, K_NO_WAIT);

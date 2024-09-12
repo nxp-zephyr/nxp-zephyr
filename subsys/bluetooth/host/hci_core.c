@@ -2787,8 +2787,10 @@ static const struct event_handler meta_events[] = {
 #if defined(CONFIG_BT_PER_ADV_SYNC_RSP)
 	EVENT_HANDLER(BT_HCI_EVT_LE_PER_ADVERTISING_REPORT_V2, bt_hci_le_per_adv_report_v2,
 		      sizeof(struct bt_hci_evt_le_per_advertising_report_v2)),
+#if defined(CONFIG_BT_PER_ADV_SYNC_TRANSFER_RECEIVER)
 	EVENT_HANDLER(BT_HCI_EVT_LE_PAST_RECEIVED_V2, bt_hci_le_past_received_v2,
 		      sizeof(struct bt_hci_evt_le_past_received_v2)),
+#endif /* CONFIG_BT_PER_ADV_SYNC_TRANSFER_RECEIVER */
 	EVENT_HANDLER(BT_HCI_EVT_LE_PER_ADV_SYNC_ESTABLISHED_V2,
 		      bt_hci_le_per_adv_sync_established_v2,
 		      sizeof(struct bt_hci_evt_le_per_adv_sync_established_v2)),
@@ -4207,7 +4209,14 @@ k_tid_t bt_testing_tx_tid_get(void)
 	/* We now TX everything from the syswq */
 	return &k_sys_work_q.thread;
 }
-#endif
+
+#if defined(CONFIG_BT_ISO)
+void bt_testing_set_iso_mtu(uint16_t mtu)
+{
+	bt_dev.le.iso_mtu = mtu;
+}
+#endif /* CONFIG_BT_ISO */
+#endif /* CONFIG_BT_TESTING */
 
 int bt_enable(bt_ready_cb_t cb)
 {
