@@ -224,15 +224,16 @@ static int eth_nxp_enet_tx(const struct device *dev, struct net_pkt *pkt)
 
 	ret = ENET_SendFrame(data->base, &data->enet_handle, data->tx_frame_buf,
 			     total_len, RING_ID, frame_is_timestamped, pkt);
-	if (ret == kStatus_Success) {
+
+	if (ret != kStatus_Success) {
+		LOG_ERR("ENET_SendFrame error: %d", ret);
+		ENET_ReclaimTxDescriptor(data->base, &data->enet_handle, RING_ID);
+		ret = -EIO;
 		goto exit;
 	}
 
 	if (frame_is_timestamped) {
 		eth_wait_for_ptp_ts(dev, pkt);
-	} else {
-		LOG_ERR("ENET_SendFrame error: %d", ret);
-		ENET_ReclaimTxDescriptor(data->base, &data->enet_handle, RING_ID);
 	}
 
 exit:
@@ -634,20 +635,25 @@ static inline void nxp_enet_fused_mac(uint8_t *mac_addr)
 #ifdef CONFIG_SOC_FAMILY_NXP_IMXRT
 	uint32_t mac_addr_fuse[2] = {0};
 
-	OCOTP_ReadFuseShadowRegisterExt((OCOTP_Type *)OCOTP_BASE,
 #if defined(CONFIG_SOC_SERIES_IMXRT10XX)
-		0x620,
+	OCOTP_Init((OCOTP_Type *)OCOTP_BASE, CLOCK_GetIpgFreq());
+	/* OTP bank 4, word 2: MAC0 */
+	OCOTP_ReadFuseShadowRegisterExt((OCOTP_Type *)OCOTP_BASE,
+		0x22, &mac_addr_fuse[0], 1);
+	/* OTP bank 4, word 3: MAC1*/
+	OCOTP_ReadFuseShadowRegisterExt((OCOTP_Type *)OCOTP_BASE,
+		0x23, &mac_addr_fuse[1], 1);
 #elif defined(CONFIG_SOC_SERIES_IMXRT11XX)
-		0xA90,
+	OCOTP_Init((OCOTP_Type *)OCOTP_BASE, 0);
+	OCOTP_ReadFuseShadowRegisterExt((OCOTP_Type *)OCOTP_BASE,
+		0x28, &mac_addr_fuse[0], 2);
 #endif
-		mac_addr_fuse, 2);
-
 	mac_addr[0] = mac_addr_fuse[0] & 0x000000FF;
-	mac_addr[1] = mac_addr_fuse[0] & 0x0000FF00;
-	mac_addr[2] = mac_addr_fuse[0] & 0x00FF0000;
-	mac_addr[3] = mac_addr_fuse[0] & 0xFF000000;
-	mac_addr[4] = mac_addr_fuse[1] & 0x00FF;
-	mac_addr[5] = mac_addr_fuse[1] & 0xFF00;
+	mac_addr[1] = (mac_addr_fuse[0] & 0x0000FF00) >> 8;
+	mac_addr[2] = (mac_addr_fuse[0] & 0x00FF0000) >> 16;
+	mac_addr[3] = (mac_addr_fuse[0] & 0xFF000000) >> 24;
+	mac_addr[4] = (mac_addr_fuse[1] & 0x00FF);
+	mac_addr[5] = (mac_addr_fuse[1] & 0xFF00) >> 8;
 #else
 	ARG_UNUSED(mac_addr);
 #endif
