@@ -17,11 +17,21 @@ properties:
     type: phandle-array
     required: true
 
+  hci-default-speed:
+    type: int
+    description: |
+      HCI UART default baudrate after the FW download. If not defined
+      bus/current-speed will be used as default.
+
   hci-operation-speed:
     type: int
     description: |
-      HCI UART baudrate for feature operation. If not defined
-      bus/current-speed will be used as default.
+      HCI UART running baudrate for feature operation. If not defined
+      hci-default-speed will be used as default.
+      When hci-operation-speed is different with hci-default-speed,
+      the HCI UART baudrate update process will be involved to change
+      the HCI UART baudrate from hci-default-speed to
+      hci-operation-speed.
 
   hw-flow-control:
     type: boolean
