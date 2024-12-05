@@ -1,0 +1,32 @@
+# SPDX-License-Identifier: Apache-2.0
+
+cmake_minimum_required(VERSION 3.13.1)
+find_package(Zephyr REQUIRED HINTS $ENV{ZEPHYR_BASE})
+project(a2dp_source)
+
+FILE(GLOB app_sources src/*.c)
+target_sources(app PRIVATE ${app_sources})
+
+zephyr_library_include_directories(${ZEPHYR_BASE}/samples/bluetooth)
+
+zephyr_code_relocate(FILES src/main.c LOCATION ITCM_TEXT NOKEEP)
+zephyr_code_relocate(FILES ../../../drivers/bluetooth/hci/h4.c LOCATION ITCM_TEXT NOKEEP)
+zephyr_code_relocate(FILES ../../../drivers/serial/uart_mcux_lpuart.c LOCATION ITCM_TEXT NOKEEP)
+zephyr_code_relocate(FILES ../../../subsys/bluetooth/host/buf.c LOCATION ITCM_TEXT NOKEEP)
+zephyr_code_relocate(FILES ../../../subsys/bluetooth/host/l2cap.c LOCATION ITCM_TEXT NOKEEP)
+zephyr_code_relocate(FILES ../../../subsys/bluetooth/host/classic/l2cap_br.c LOCATION ITCM_TEXT NOKEEP)
+zephyr_code_relocate(FILES ../../../subsys/bluetooth/host/conn.c LOCATION ITCM_TEXT NOKEEP)
+zephyr_code_relocate(FILES ../../../subsys/bluetooth/host/hci_core.c LOCATION ITCM_TEXT NOKEEP)
+zephyr_code_relocate(FILES ../../../subsys/bluetooth/host/classic/a2dp.c LOCATION ITCM_TEXT NOKEEP)
+zephyr_code_relocate(FILES ../../../subsys/bluetooth/host/classic/avdtp.c LOCATION ITCM_TEXT NOKEEP)
+zephyr_code_relocate(FILES ../../../kernel/system_work_q.c LOCATION ITCM_TEXT NOKEEP)
+zephyr_code_relocate(FILES ../../../kernel/work.c LOCATION ITCM_TEXT NOKEEP)
+zephyr_code_relocate(FILES ../../../arch/arm/core/cortex_m/isr_wrapper.c LOCATION ITCM_TEXT NOKEEP)
+zephyr_code_relocate(FILES ../../../../modules/lib/libsbc/encoder/srce/sbc_encoder.c LOCATION ITCM_TEXT NOKEEP)
+zephyr_code_relocate(FILES ../../../../modules/lib/libsbc/encoder/srce/sbc_analysis.c LOCATION ITCM_TEXT NOKEEP)
+zephyr_code_relocate(FILES ../../../../modules/lib/libsbc/encoder/srce/sbc_dct.c LOCATION ITCM_TEXT NOKEEP)
+zephyr_code_relocate(FILES ../../../../modules/lib/libsbc/encoder/srce/sbc_dct_coeffs.c LOCATION ITCM_TEXT NOKEEP)
+zephyr_code_relocate(FILES ../../../../modules/lib/libsbc/encoder/srce/sbc_enc_bit_alloc_mono.c LOCATION ITCM_TEXT NOKEEP)
+zephyr_code_relocate(FILES ../../../../modules/lib/libsbc/encoder/srce/sbc_enc_bit_alloc_ste.c LOCATION ITCM_TEXT NOKEEP)
+zephyr_code_relocate(FILES ../../../../modules/lib/libsbc/encoder/srce/sbc_enc_coeffs.c LOCATION ITCM_TEXT NOKEEP)
+zephyr_code_relocate(FILES ../../../../modules/lib/libsbc/encoder/srce/sbc_packing.c LOCATION ITCM_TEXT NOKEEP)
