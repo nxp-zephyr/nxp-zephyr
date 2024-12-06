@@ -157,7 +157,7 @@ manifest:
       groups:
         - hal
     - name: hal_espressif
-      revision: b562c44cb5f453cb011001779ef2ad1a3851a96f
+      revision: 01fc4ec49b8b178d7aea765cdb8709311ee4c50b
       path: modules/hal/espressif
       west-commands: west/west-commands.yml
       groups:
@@ -287,7 +287,7 @@ manifest:
       groups:
         - crypto
     - name: mcuboot
-      revision: fb2cf0ec3da3687b93f28e556ab682bdd4b85223
+      revision: ea2410697dd0262edec041a0ccb07fdbde7c1aff
       path: bootloader/mcuboot
     - name: mipi-sys-t
       path: modules/debug/mipi-sys-t
@@ -327,7 +327,7 @@ manifest:
       groups:
         - crypto
     - name: trusted-firmware-m
-      revision: 069455be098383bf96eab73e3ff8e0c66c60fa5a
+      revision: 60ebade5d3d381a210af90191e475d8870b8adbc
       path: modules/tee/tf-m/trusted-firmware-m
       groups:
         - tee
