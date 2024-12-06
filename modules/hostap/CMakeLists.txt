@@ -43,7 +43,6 @@ zephyr_library_compile_definitions(
 	CONFIG_SHA512
 	CONFIG_CTRL_IFACE_ZEPHYR
 	CONFIG_SUITEB192
-	CONFIG_SUITEB
 )
 
 
