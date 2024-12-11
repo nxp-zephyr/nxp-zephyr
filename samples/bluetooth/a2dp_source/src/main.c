@@ -76,7 +76,7 @@ static struct bt_a2dp_ep *sbc_peer_eps[CONFIG_BT_MAX_CONN] = {&peer_sbc_endpoint
 static bool peer_sbc_found;
 BT_A2DP_SBC_EP_CFG_DEFAULT(sbc_cfg_default, A2DP_SBC_SAMP_FREQ_44100);
 static struct bt_a2dp_stream sbc_stream[CONFIG_BT_MAX_CONN];
-NET_BUF_POOL_DEFINE(a2dp_tx_pool, CONFIG_BT_MAX_CONN * 10,
+NET_BUF_POOL_DEFINE(a2dp_tx_pool, CONFIG_BT_MAX_CONN * 5,
 		BT_L2CAP_BUF_SIZE(CONFIG_BT_L2CAP_TX_MTU),
 		CONFIG_BT_CONN_TX_USER_DATA_SIZE, NULL);
 static volatile uint8_t start_stream_count;
