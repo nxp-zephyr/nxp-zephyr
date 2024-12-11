@@ -1,0 +1,13 @@
+--------------------------------------------
+
+Name:             NXP Zephyr
+Version:          3.7.1
+Outgoing License: Apache-2.0
+License File:     LICENSE
+Format:           source code
+Description:      NXP Zephyr downstream
+Location:         https://github.com/zephyrproject-rtos/zephyr
+Origin:           https://github.com/zephyrproject-rtos/zephyr (Apache-2.0)
+                  https://github.com/zephyrproject-rtos/zephyr (GPL-v2.0)
+
+--------------------------------------------
