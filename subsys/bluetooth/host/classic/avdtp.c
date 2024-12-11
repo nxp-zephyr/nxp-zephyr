@@ -1156,6 +1156,18 @@ int bt_avdtp_connect(struct bt_conn *conn, struct bt_avdtp *session)
 		return -EINVAL;
 	}
 
+	/* there are headsets that initiate the AVDTP singal l2cap connection
+	 * at the same time when DUT initiates the same l2cap connection.
+	 * Use the `conn` to check whether the l2cap creation is already started.
+	 * The whole `session` is cleared by upper layer if it is new l2cap connection.
+	 */
+	k_sem_take(&avdtp_sem_lock, K_FOREVER);
+	if (session->br_chan.chan.conn != NULL) {
+		k_sem_give(&avdtp_sem_lock);
+		return -ENOMEM;
+	}
+	session->br_chan.chan.conn = conn;
+	k_sem_give(&avdtp_sem_lock);
 	/* Locking semaphore initialized to 1 (unlocked) */
 	k_sem_init(&session->sem_lock, 1, 1);
 	session->br_chan.rx.mtu = BT_L2CAP_RX_MTU;
@@ -1191,15 +1203,20 @@ int bt_avdtp_l2cap_accept(struct bt_conn *conn, struct bt_l2cap_server *server,
 
 	/* there are headsets that initiate the AVDTP singal l2cap connection
 	 * at the same time when DUT initiates the same l2cap connection.
+	 * Use the `conn` to check whether the l2cap creation is already started.
+	 * The whole `session` is cleared by upper layer if it is new l2cap connection.
 	 */
-	if (session->br_chan.chan.conn == NULL ||
-	    session->br_chan.state != BT_L2CAP_CONNECTED) {
+	k_sem_take(&avdtp_sem_lock, K_FOREVER);
+	if (session->br_chan.chan.conn == NULL) {
+		session->br_chan.chan.conn = conn;
+		k_sem_give(&avdtp_sem_lock);
 		/* Locking semaphore initialized to 1 (unlocked) */
 		k_sem_init(&session->sem_lock, 1, 1);
 		session->br_chan.chan.ops = &signal_chan_ops;
 		session->br_chan.rx.mtu = BT_L2CAP_RX_MTU;
 		*chan = &session->br_chan.chan;
 	} else {
+		k_sem_give(&avdtp_sem_lock);
 		/* get the current opening endpoint */
 		if (session->current_sep != NULL) {
 			session->current_sep->session = session;
@@ -1208,6 +1225,8 @@ int bt_avdtp_l2cap_accept(struct bt_conn *conn, struct bt_l2cap_server *server,
 			session->current_sep->chan.required_sec_level = BT_SECURITY_L2;
 			*chan = &session->current_sep->chan.chan;
 			session->current_sep = NULL;
+		} else {
+			return -ENOMEM;
 		}
 	}
 
