@@ -51,8 +51,7 @@ All environments using IMXRT6XX with Xtensa core are affected.
 
 ### Discussion
 
-See issue comments for ongoing discussion:
-- https://github.com/nxp-zephyr/nxp-zephyr/issues/15
+See [Issue #15 Discussion](https://github.com/nxp-zephyr/nxp-zephyr/issues/15) for ongoing discussion.
 
 ---
 
@@ -89,8 +88,7 @@ All environments using IMXRT6XX with Xtensa core are affected.
 
 ### Discussion
 
-See issue comments for ongoing discussion:
-- https://github.com/nxp-zephyr/nxp-zephyr/issues/14
+See [Issue #14 Discussion](https://github.com/nxp-zephyr/nxp-zephyr/issues/14) for ongoing discussion.
 
 ---
 
