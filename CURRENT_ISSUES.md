@@ -104,6 +104,6 @@ If you're interested in helping resolve these issues, please:
 
 ## Additional Resources
 
-- [NXP Application Note AN14597](https://docs.nxp.com/bundle/AN14597/)
+- [NXP Application Note AN14597](https://docs.nxp.com/bundle/AN14597/page/topics/using_the_zephyr_code_relocation_feature.html)
 - [Zephyr Project Documentation](https://docs.zephyrproject.org/)
 - [GitHub Issues](https://github.com/nxp-zephyr/nxp-zephyr/issues)
