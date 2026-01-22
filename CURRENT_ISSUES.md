@@ -31,7 +31,7 @@ The linker script at `soc/nxp/imxrt/imxrt6xx/hifi4/linker.ld` is missing imports
 
 ### Reproduction Steps
 
-1. Follow the application note: https://docs.nxp.com/bundle/AN14597/page/topics/using_the_zephyr_code_relocation_feature.html
+1. Follow the [NXP Application Note AN14597](https://docs.nxp.com/bundle/AN14597/page/topics/using_the_zephyr_code_relocation_feature.html)
 2. Define custom memory regions in the device tree:
    ```dts
    sdram_code: memory@0 {
