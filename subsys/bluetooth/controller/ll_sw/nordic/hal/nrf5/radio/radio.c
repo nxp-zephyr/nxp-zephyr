@@ -1479,8 +1479,8 @@ uint32_t radio_tmr_start(uint8_t trx, uint32_t ticks_start, uint32_t remainder)
 	SW_SWITCH_TIMER->MODE = 0;
 	SW_SWITCH_TIMER->PRESCALER = HAL_EVENT_TIMER_PRESCALER_VALUE;
 	SW_SWITCH_TIMER->BITMODE = 0; /* 16 bit */
-	/* FIXME: start along with EVENT_TIMER, to save power */
-	nrf_timer_task_trigger(SW_SWITCH_TIMER, NRF_TIMER_TASK_START);
+
+	hal_sw_switch_timer_start_ppi_config();
 #endif /* !CONFIG_BT_CTLR_SW_SWITCH_SINGLE_TIMER */
 
 	hal_sw_switch_timer_clear_ppi_config();
@@ -2693,6 +2693,28 @@ void radio_ar_status_reset(void)
 	hal_radio_nrf_ppi_channels_disable(BIT(HAL_TRIGGER_AAR_PPI));
 }
 
+static void ar_end_wait(void)
+{
+	/* Blocking Address Resolution (AR) wait */
+
+	/* An arbitrary iteration which seems sufficient testing on target with one IRK to resolve.
+	 * We should ideally not be waiting anyway, and in theory be resolved before we are here.
+	 */
+	uint32_t countdown = 200U;
+
+	while ((NRF_AAR->EVENTS_END == 0U) && (countdown != 0U)) {
+		countdown--;
+
+		/* We do not CPU sleep on select target SoCs but spin wait.
+		 * For all other platforms, interrupt on END is enabled by the caller of this
+		 * function, we will be woken up when the EVENTS_END occurs.
+		 */
+		if (!IS_ENABLED(CONFIG_SOC_SERIES_NRF54L)) {
+			cpu_sleep();
+		}
+	}
+}
+
 uint32_t radio_ar_has_match(void)
 {
 	if (!radio_bc_has_match()) {
@@ -2701,9 +2723,7 @@ uint32_t radio_ar_has_match(void)
 
 	nrf_aar_int_enable(NRF_AAR, AAR_INTENSET_END_Msk);
 
-	while (NRF_AAR->EVENTS_END == 0U) {
-		cpu_sleep();
-	}
+	ar_end_wait();
 
 	nrf_aar_int_disable(NRF_AAR, AAR_INTENCLR_END_Msk);
 
@@ -2753,9 +2773,7 @@ uint8_t radio_ar_resolve(const uint8_t *addr)
 
 	nrf_aar_task_trigger(NRF_AAR, NRF_AAR_TASK_START);
 
-	while (NRF_AAR->EVENTS_END == 0) {
-		cpu_sleep();
-	}
+	ar_end_wait();
 
 	nrf_aar_int_disable(NRF_AAR, AAR_INTENCLR_END_Msk);
 

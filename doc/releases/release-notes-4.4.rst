@@ -200,6 +200,16 @@ New APIs and options
     mailbox usage. Applications should be prepared to receive a NULL payload pointer
     in IPM callbacks when no data buffer is provided by the mailbox.
 
+* Management
+
+  * MCUmgr
+
+    * :kconfig:option:`CONFIG_UART_MCUMGR_RAW_PROTOCOL`,
+      :kconfig:option:`CONFIG_MCUMGR_TRANSPORT_RAW_UART`,
+      :kconfig:option:`CONFIG_MCUMGR_TRANSPORT_RAW_UART_INPUT_TIMEOUT`,
+      :kconfig:option:`CONFIG_MCUMGR_TRANSPORT_RAW_UART_INPUT_TIMEOUT_TIME_MS` see
+      :ref:`raw UART MCUmgr SMP transport <mcumgr_smp_transport_raw_uart>` for details.
+
 * Modem
 
   * :kconfig:option:`CONFIG_MODEM_HL78XX_AT_SHELL`
@@ -217,6 +227,17 @@ New APIs and options
   * Wi-Fi
 
     * Add support for Wi-Fi Direct (P2P) mode.
+
+* OTP
+
+  * New OTP driver API providing means to provision (:c:func:`otp_program()`) and
+    read (:c:func:`otp_read()`) :abbr:`OTP(One Time Programmable)` memory devices
+    (:github:`101292`). OTP devices can also be accessed through the
+    :ref:`Non-Volatile Memory (NVMEM)<nvmem>` subsystem. Available options are:
+
+    * :kconfig:option:`CONFIG_OTP`
+    * :kconfig:option:`CONFIG_OTP_PROGRAM`
+    * :kconfig:option:`CONFIG_OTP_INIT_PRIORITY`
 
 * PWM
 
@@ -308,6 +329,11 @@ New Drivers
 * Display
 
   * :dtcompatible:`solomon,ssd1325`
+
+* OTP
+
+  * Added new stm32 BSEC driver that provides means to program and read OTP fuses
+    (:dtcompatible:`st,stm32-bsec`). (:github:`102403`)
 
 New Samples
 ***********

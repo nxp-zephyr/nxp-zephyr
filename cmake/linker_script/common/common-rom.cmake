@@ -240,6 +240,10 @@ if(CONFIG_NET_SOCKETS_SERVICE)
   )
 endif()
 
+if(CONFIG_NET_DSA)
+  zephyr_iterable_section(NAME dsa_tag_register KVMA RAM_REGION GROUP RODATA_REGION)
+endif()
+
 if(CONFIG_INPUT)
   zephyr_iterable_section(NAME input_callback KVMA RAM_REGION GROUP RODATA_REGION)
 endif()
@@ -271,4 +275,8 @@ endif()
 
 if(CONFIG_GNSS_RTK)
   zephyr_iterable_section(NAME gnss_rtk_data_callback KVMA RAM_REGION GROUP RODATA_REGION)
+endif()
+
+if(CONFIG_TIMER_OBSERVER)
+  zephyr_iterable_section(NAME k_timer_observer KVMA RAM_REGION GROUP RODATA_REGION)
 endif()

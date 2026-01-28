@@ -746,6 +746,29 @@
 			status = "disabled";
 		};
 
+		bsec: efuse@56009000 {
+			compatible = "st,stm32-bsec";
+			reg = <0x56009000 0x1000>;
+			st,upper-fuse-limit = <256>;
+			status = "disabled";
+
+			nvmem-layout {
+				compatible = "fixed-layout";
+				#address-cells = <1>;
+				#size-cells = <1>;
+
+				mac_address0: mac-address@2a4 {
+					reg = <0x2a4 0x6>;
+					#nvmem-cell-cells = <0>;
+				};
+
+				mac_address1: mac-address@2ac {
+					reg = <0x2ac 0x6>;
+					#nvmem-cell-cells = <0>;
+				};
+			};
+		};
+
 		dcmipp: dcmipp@58002000 {
 			compatible = "st,stm32-dcmipp";
 			reg = <0x58002000 0x1000>;
@@ -1339,12 +1362,17 @@
 		npu: npu@580e0000 {
 			compatible = "st,stm32-npu";
 			reg = <0x580e0000 DT_SIZE_K(128)>;
-			clocks = <&rcc STM32_CLOCK(AHB5, 31)>,
-				 <&rcc STM32_CLOCK(AHB5, 30)>;
-			clock-names = "npu", "cacheaxi";
-			resets = <&rctl STM32_RESET(AHB5, 31)>,
-				 <&rctl STM32_RESET(AHB5, 30)>;
+			clocks = <&rcc STM32_CLOCK(AHB5, 31)>;
+			resets = <&rctl STM32_RESET(AHB5, 31)>;
 			status = "disabled";
+		};
+
+		npu_cache: cache-controller@580dfc00 {
+			compatible = "st,stm32-npu-cache";
+			reg = <0x580dfc00 DT_SIZE_K(1)>;
+			clocks = <&rcc STM32_CLOCK(AHB5, 30)>;
+			resets = <&rctl STM32_RESET(AHB5, 30)>;
+			status = "okay";
 		};
 
 		venc: venc@58005000 {
