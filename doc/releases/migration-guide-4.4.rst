@@ -33,6 +33,10 @@ Build System
   :kconfig:option:`CONFIG_BOARD_QUALIFIERS` so that it is no longer prefixed with a ``/``.
   This means that any use of ``${BOARD}${BOARD_QUALIFIERS}`` must be updated to include ``/``, like
   this: ``${BOARD}/${BOARD_QUALIFIERS}``.
+* ``SNIPPET_ROOT`` has been aligned with other Zephyr ``<type>_ROOT`` settings which doesn't include
+  the application source dir per-default. Samples requiring application source dir to be added to
+  ``SNIPPET_ROOT`` must instead add the application source dir using ``snippet_root = <dir>`` entry
+  in :file:`zephyr/module.yml` or manually append the folder to the CMake variable ``SNIPPET_ROOT``.
 
 Kernel
 ******
@@ -119,7 +123,41 @@ Boards
   * :kconfig:option:`CONFIG_SOC_SERIES_NRF91X` with :kconfig:option:`CONFIG_SOC_SERIES_NRF91`
   * :kconfig:option:`CONFIG_SOC_SERIES_NRF92X` with :kconfig:option:`CONFIG_SOC_SERIES_NRF92`
 
+* The following Sifive Freedom SoC Kconfigs have been deprecated and replaced, and
+  Kconfig/CMake/code needs to be updated if they reference the deprecated Kconfigs:
+
+  * :kconfig:option:`CONFIG_SOC_SERIES_SIFIVE_FREEDOM_FE300` with
+    :kconfig:option:`CONFIG_SOC_SERIES_FE300`
+  * :kconfig:option:`CONFIG_SOC_SIFIVE_FREEDOM_FE310_G000` with
+    :kconfig:option:`CONFIG_SOC_FE310_G000`
+  * :kconfig:option:`CONFIG_SOC_SIFIVE_FREEDOM_FE310_G002` with
+    :kconfig:option:`CONFIG_SOC_FE310_G002`
+  * :kconfig:option:`CONFIG_SOC_SERIES_SIFIVE_FREEDOM_FU500` with
+    :kconfig:option:`CONFIG_SOC_SERIES_FU500`
+  * :kconfig:option:`CONFIG_SOC_SIFIVE_FREEDOM_FU540` with :kconfig:option:`CONFIG_SOC_FU540`
+  * :kconfig:option:`CONFIG_SOC_SIFIVE_FREEDOM_FU540_E51` with
+    :kconfig:option:`CONFIG_SOC_FU540_E51`
+  * :kconfig:option:`CONFIG_SOC_SIFIVE_FREEDOM_FU540_U54` with
+    :kconfig:option:`CONFIG_SOC_FU540_U54`
+  * :kconfig:option:`CONFIG_SOC_SERIES_SIFIVE_FREEDOM_FU700` with
+    :kconfig:option:`CONFIG_SOC_SERIES_FU700`
+  * :kconfig:option:`CONFIG_SOC_SIFIVE_FREEDOM_FU740` with :kconfig:option:`CONFIG_SOC_FU740`
+  * :kconfig:option:`CONFIG_SOC_SIFIVE_FREEDOM_FU740_S7` with :kconfig:option:`CONFIG_SOC_FU740_S7`
+  * :kconfig:option:`CONFIG_SOC_SIFIVE_FREEDOM_FU740_U74` with
+    :kconfig:option:`CONFIG_SOC_FU740_U74`
+
 * ITE ``it515xx_evb`` is renamed to ``it51xxx_evb``.
+
+* Boards that have NVM devices must now correctly have their addresses set or inheritied when they
+  do not start at address 0x0. In previous zephyr releases, a ``partitions`` entry in DTS was
+  wrongly interpreted as starting in the flash device's address range even though the DTS file
+  does not describe this and instead describes flash partitions starting at absolute addresses
+  e.g. 0x0. If you build and get the deprecated Kconfig
+  :kconfig:option:`CONFIG_FLASH_CODE_PARTITION_ADDRESS_INVALID` being set then this means your
+  board, SoC or DTS files are wrong and need updating, a ``ranges <>;`` property should be used
+  by the flash nodes to specify the base address and size for child nodes, and
+  ``fixed-partitions``/``fixed-subpartitions`` nodes must have a ``ranges;`` property to pass the
+  parent's ranges on to child nodes.
 
 Device Drivers and Devicetree
 *****************************
@@ -176,8 +214,8 @@ Controller Area Network (CAN)
   * :kconfig:option:`CONFIG_CAN_XMC4XXX_MAX_FILTERS` for :dtcompatible:`infineon,xmc4xxx-can-node`
 
 * Replaced Kconfig option ``CONFIG_CAN_MAX_MB`` for :dtcompatible:`nxp,flexcan` and
-  :dtcompatible:`nxp,flexcan-fd` with per-instance ``number-of-mb`` and
-  ``number-of-mb-fd`` devicetree properties (:github:`99483`).
+  :dtcompatible:`nxp,flexcan-fd` with per-instance a ``number-of-mb`` devicetree property
+  (:github:`99483`).
 
 * The :dtcompatible:`nxp,flexcan` ``clk-source`` devicetree property, if present, now automatically
   selects between the named input clocks ``clksrc0`` and ``clksrc1`` for use as the CAN protocol
@@ -457,6 +495,13 @@ Ethernet
   reworked to be used as active low, you may have to set the pin as
   ``GPIO_ACTIVE_LOW`` in devicetree (:github:`100751`).
 
+File System
+===========
+
+* :kconfig:option:`CONFIG_FS_FATFS_FSTAB_AUTOMOUNT` is now enabled by default, if any enabled
+  :dtcompatible:`zephyr,fstab,fatfs` with the ``automount`` property are present in the devicetree.
+  Applications that do not want this behavior need to explicitly disable this option.
+
 GPIO
 ====
 
@@ -527,6 +572,15 @@ MDIO
 * The ``mdio_bus_enable()`` and ``mdio_bus_disable()`` functions have been removed.
   MDIO bus enabling/disabling is now handled internally by the MDIO drivers.
   (:github:`99690`).
+
+MEMC
+====
+
+* :dtcompatible:`st,stm32-xspi-psram` and :dtcompatible:`st,stm32-ospi-psram`
+  compatible nodes now need to include the ``st,refresh`` property to specify
+  the PSRAM refresh rate in number of memory clock cycles. (:github:`102735`).
+  Hard-coded default values in drivers, of 320 (:dtcompatible:`st,stm32-xspi-psram`) and 129
+  (:dtcompatible:`st,stm32-ospi-psram`), have been removed.
 
 QSPI
 ====
@@ -678,6 +732,11 @@ STM32
   .. note:: This change aligns STM32 platforms' behavior with the generic Zephyr one. Previous
             implementation wasn't product-ready so this shouldn't cause much trouble.
 
+* The Kconfig option ``CONFIG_SPI_STM32_USE_HW_SS`` has been removed. SPI operation mode
+  is now selected automatically based on devicetree configuration: instances with either of
+  the ``cs-gpios`` or new ``st,soft-nss`` property operate in "Soft NSS" mode, while all other
+  instances operate in "Hard NSS" mode.
+
 USB
 ===
 
@@ -774,6 +833,11 @@ Networking
   Available :kconfig:option-regex:`CONFIG_MBEDTLS_CIPHERSUITE_TLS_.*` Kconfig helpers can be used
   to automatically enable all the dependencies of a given ciphersuite, and more can be added as
   needed following the same pattern.
+
+* Resource-related metadata for CoAP ``.well-known/core`` responses is now configured with a dedicated
+  :c:member:`coap_resource.metadata` pointer instead of :c:member:`coap_resource.user_data`, which
+  should remain for the application to use exclusively. Applications implementing CoAP
+  ``.well-known/core`` handling should be updated to use the new pointer.
 
 Modem
 *****

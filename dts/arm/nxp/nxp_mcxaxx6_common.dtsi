@@ -175,10 +175,10 @@
 			dma-names = "rx", "tx";
 		};
 
-		lpuart1: lpuart@4009a000 {
+		lpuart1: lpuart@400a0000 {
 			compatible = "nxp,lpuart";
 			status = "disabled";
-			reg = <0x4009a000 0x1000>;
+			reg = <0x400a0000 0x1000>;
 			interrupts = <32 0>;
 			clocks = <&syscon MCUX_LPUART1_CLK>;
 			/* DMA channels 2 and 3 muxed to LPUART1 RX and TX */
@@ -544,9 +544,9 @@
 			interrupts = <18 0>;
 		};
 
-		cmc: system-modules@4008B000 {
+		cmc: system-modules@4008b000 {
 			compatible = "nxp,cmc", "nxp,cmc-reset-cause";
-			reg = <0x4008B000 0x1000>;
+			reg = <0x4008b000 0x1000>;
 			interrupts = <1 0>;
 		};
 
@@ -562,7 +562,6 @@
 			interrupt-names = "common";
 			clocks = <&syscon MCUX_FLEXCAN0_CLK>;
 			number-of-mb = <32>;
-			number-of-mb-fd = <7>;
 			status = "disabled";
 		};
 
@@ -573,7 +572,6 @@
 			interrupt-names = "common";
 			clocks = <&syscon MCUX_FLEXCAN1_CLK>;
 			number-of-mb = <32>;
-			number-of-mb-fd = <7>;
 			status = "disabled";
 		};
 

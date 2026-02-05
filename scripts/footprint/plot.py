@@ -51,7 +51,7 @@ def main():
     with open(args.input) as f:
         data = json.load(f)
 
-    totalsize = data.get('total_size')
+    totalsize = data.get('total_size', 0)
     ids = []
     labels = []
     parents = []
@@ -75,7 +75,9 @@ def main():
         parents.append(parent)
         values.append(node.get('size', 0))
 
-        details = [f'percentage: {node.get("size") / totalsize:.2%}']
+        details = []
+        if totalsize > 0:
+            details.append(f'percentage: {node.get("size") / totalsize:.2%}')
         if 'address' in node:
             details.append(f'address: 0x{node.get("address"):08x}')
         if 'section' in node:
@@ -101,6 +103,7 @@ def main():
         skip_invalid=True,
     )
     fig.update_layout(margin={'t': 0, 'l': 0, 'r': 0, 'b': 0})
+    fig.update_traces(textfont=dict(size=24))
 
     if args.html:
         fig.write_html(args.html, auto_open=False)

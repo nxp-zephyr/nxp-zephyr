@@ -22,6 +22,7 @@
 		sw0 = &user_button_2;
 		sw1 = &user_button_3;
 		watchdog0 = &wwdt0;
+		die-temp0 = &temp0;
 	};
 
 	chosen {
@@ -31,6 +32,7 @@
 		zephyr,code-partition = &slot0_partition;
 		zephyr,console = &lpuart2;
 		zephyr,shell-uart = &lpuart2;
+		zephyr,canbus = &flexcan0;
 	};
 
 	leds {
@@ -127,9 +129,9 @@
 			reg = <0x00004000 DT_SIZE_K(100)>;
 		};
 
-		slot1_partition: partition@1D000 {
+		slot1_partition: partition@1d000 {
 			label = "image-1";
-			reg = <0x0001D000 DT_SIZE_K(100)>;
+			reg = <0x0001d000 DT_SIZE_K(100)>;
 		};
 
 		storage_partition: partition@36000 {
@@ -137,6 +139,12 @@
 			reg = <0x00036000 DT_SIZE_K(28)>;
 		};
 	};
+};
+
+&flexcan0 {
+	status = "okay";
+	pinctrl-0 = <&pinmux_flexcan0>;
+	pinctrl-names = "default";
 };
 
 &gpio0 {
@@ -157,6 +165,12 @@
 
 &gpio4 {
 	status = "okay";
+};
+
+&lpadc0 {
+	status = "okay";
+	pinctrl-0 = <&pinmux_lpadc0>;
+	pinctrl-names = "default";
 };
 
 &lpi2c0 {

@@ -89,11 +89,13 @@
 	 * the second stage bootloader
 	 */
 	reg = <0x10000000 DT_SIZE_M(16)>;
+	ranges = <0x0 0x10000000 DT_SIZE_M(16)>;
 
 	partitions {
 		compatible = "fixed-partitions";
 		#address-cells = <1>;
 		#size-cells = <1>;
+		ranges;
 
 		/* Reserved memory for the second stage bootloader */
 		second_stage_bootloader: partition@0 {
@@ -188,6 +190,14 @@ zephyr_udc0: &usbd {
 
 pico_spi: &spi0 {};
 
+pico_spi0: &spi0 {};
+
+pico_i2c: &i2c0 {};
+
 pico_i2c0: &i2c0 {};
 
 pico_i2c1: &i2c1 {};
+
+pico_serial: &uart0 {};
+
+pico_serial0: &uart0 {};

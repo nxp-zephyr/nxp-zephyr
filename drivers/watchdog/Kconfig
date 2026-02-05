@@ -66,6 +66,7 @@ config WDT_COUNTER_CH_COUNT
 endif # WDT_COUNTER
 
 # zephyr-keep-sorted-start
+source "drivers/watchdog/Kconfig.adi_max42500"
 source "drivers/watchdog/Kconfig.ambiq"
 source "drivers/watchdog/Kconfig.andes_atcwdt200"
 source "drivers/watchdog/Kconfig.cc13xx_cc26xx"
@@ -119,5 +120,7 @@ source "drivers/watchdog/Kconfig.xilinx_wwdt"
 source "drivers/watchdog/Kconfig.xlnx"
 source "drivers/watchdog/Kconfig.xmc4xxx"
 # zephyr-keep-sorted-stop
+
+source "drivers/watchdog/Kconfig.rts5817"
 
 endif # WATCHDOG

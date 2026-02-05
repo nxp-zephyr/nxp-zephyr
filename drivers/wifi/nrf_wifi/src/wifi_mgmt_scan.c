@@ -308,14 +308,12 @@ void nrf_wifi_event_proc_disp_scan_res_zep(void *vif_ctx,
 				unsigned int event_len,
 				bool more_res)
 {
-	struct nrf_wifi_vif_ctx_zep *vif_ctx_zep = NULL;
+	struct nrf_wifi_vif_ctx_zep *vif_ctx_zep = vif_ctx;
 	struct umac_display_results *r = NULL;
 	struct wifi_scan_result res;
 	uint16_t max_bss_cnt = 0;
 	unsigned int i = 0;
 	scan_result_cb_t cb = NULL;
-
-	vif_ctx_zep = vif_ctx;
 
 	cb = (scan_result_cb_t)vif_ctx_zep->disp_scan_cb;
 
@@ -390,12 +388,9 @@ void nrf_wifi_rx_bcn_prb_resp_frm(void *vif_ctx,
 {
 	struct nrf_wifi_vif_ctx_zep *vif_ctx_zep = vif_ctx;
 	struct nrf_wifi_ctx_zep *rpu_ctx_zep = NULL;
-	struct nrf_wifi_fmac_dev_ctx *fmac_dev_ctx = NULL;
 	struct wifi_raw_scan_result bcn_prb_resp_info;
 	int frame_length = 0;
 	int val = signal;
-
-	vif_ctx_zep = vif_ctx;
 
 	if (!vif_ctx_zep) {
 		LOG_ERR("%s: vif_ctx_zep is NULL", __func__);
@@ -419,8 +414,6 @@ void nrf_wifi_rx_bcn_prb_resp_frm(void *vif_ctx,
 		LOG_DBG("%s: RPU context not initialized", __func__);
 		goto out;
 	}
-
-	fmac_dev_ctx = rpu_ctx_zep->rpu_ctx;
 
 	frame_length = nrf_wifi_osal_nbuf_data_size(nwb);
 

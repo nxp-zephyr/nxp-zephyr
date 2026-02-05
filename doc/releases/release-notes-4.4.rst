@@ -194,6 +194,14 @@ New APIs and options
   * :dtcompatible:`jedec,mspi-nor` now allows MSPI configuration of read, write and
     control commands separately via devicetree.
 
+* Haptics
+
+  * Added error callback to API
+
+    * :c:enum:`haptics_error_type` to enumerate common fault conditions in haptics devices.
+    * :c:type:`haptics_error_callback_t` to provide function prototype for error callbacks.
+    * :c:func:`haptics_register_error_callback` to register an error callback with a driver.
+
 * IPM
 
   * IPM callbacks for the mailbox backend now correctly handle signal-only mailbox
@@ -334,6 +342,7 @@ New Drivers
 
   * Added new stm32 BSEC driver that provides means to program and read OTP fuses
     (:dtcompatible:`st,stm32-bsec`). (:github:`102403`)
+  * :dtcompatible:`nxp,ocotp` (:github:`102567` & :github:`103089`)
 
 New Samples
 ***********

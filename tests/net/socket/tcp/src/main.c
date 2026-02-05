@@ -28,6 +28,7 @@ LOG_MODULE_REGISTER(net_test, CONFIG_NET_SOCKETS_LOG_LEVEL);
 
 #define ANY_PORT 0
 #define SERVER_PORT 4242
+#define CLIENT_PORT 4243
 
 #define MAX_CONNS 5
 
@@ -65,6 +66,22 @@ static void test_send(int sock, const void *buf, size_t len, int flags)
 	zassert_equal(zsock_send(sock, buf, len, flags),
 		      len,
 		      "send failed");
+}
+
+static void test_send_all(int sock, const void *buf, size_t len, int flags,
+			  k_timeout_t timeout, size_t *sent_bytes)
+{
+	zassert_equal(zsock_send_all(sock, buf, len, flags, timeout, sent_bytes),
+		      0,
+		      "send_all failed");
+}
+
+static void test_sendmsg_all(int sock, const struct net_msghdr *msg, int flags,
+			     k_timeout_t timeout, size_t *sent_bytes)
+{
+	zassert_equal(zsock_sendmsg_all(sock, msg, flags, timeout, sent_bytes),
+		      0,
+		      "sendmsg_all failed");
 }
 
 static void test_sendto(int sock, const void *buf, size_t len, int flags,
@@ -583,12 +600,13 @@ ZTEST_USER(net_socket_tcp, test_v4_sendto_recvfrom)
 	int new_sock;
 	struct net_sockaddr_in c_saddr;
 	struct net_sockaddr_in s_saddr;
-	struct net_sockaddr addr;
+	struct net_sockaddr addr = { 0 };
 	net_socklen_t addrlen = sizeof(addr);
 
-	prepare_sock_tcp_v4(MY_IPV4_ADDR, ANY_PORT, &c_sock, &c_saddr);
+	prepare_sock_tcp_v4(MY_IPV4_ADDR, CLIENT_PORT, &c_sock, &c_saddr);
 	prepare_sock_tcp_v4(MY_IPV4_ADDR, SERVER_PORT, &s_sock, &s_saddr);
 
+	test_bind(c_sock, (struct net_sockaddr *)&c_saddr, sizeof(c_saddr));
 	test_bind(s_sock, (struct net_sockaddr *)&s_saddr, sizeof(s_saddr));
 	test_listen(s_sock);
 
@@ -598,12 +616,37 @@ ZTEST_USER(net_socket_tcp, test_v4_sendto_recvfrom)
 
 	test_accept(s_sock, &new_sock, &addr, &addrlen);
 	zassert_equal(addrlen, sizeof(struct net_sockaddr_in), "wrong addrlen");
+	zassert_equal(addr.sa_family, NET_AF_INET, "Wrong family");
+	zassert_equal(net_sin(&addr)->sin_port, net_htons(CLIENT_PORT), "Wrong port");
+	zassert_true(net_ipv4_is_addr_loopback(&net_sin(&addr)->sin_addr), "Wrong address");
 
+	memset(&addr, 0, sizeof(addr));
+	addrlen = sizeof(addr);
 	test_recvfrom(new_sock, ZSOCK_MSG_PEEK, &addr, &addrlen);
 	zassert_equal(addrlen, sizeof(struct net_sockaddr_in), "wrong addrlen");
+	zassert_equal(addr.sa_family, NET_AF_INET, "Wrong family");
+	zassert_equal(net_sin(&addr)->sin_port, net_htons(CLIENT_PORT), "Wrong port");
+	zassert_true(net_ipv4_is_addr_loopback(&net_sin(&addr)->sin_addr), "Wrong address");
 
+	memset(&addr, 0, sizeof(addr));
+	addrlen = sizeof(addr);
 	test_recvfrom(new_sock, 0, &addr, &addrlen);
 	zassert_equal(addrlen, sizeof(struct net_sockaddr_in), "wrong addrlen");
+	zassert_equal(addr.sa_family, NET_AF_INET, "Wrong family");
+	zassert_equal(net_sin(&addr)->sin_port, net_htons(CLIENT_PORT), "Wrong port");
+	zassert_true(net_ipv4_is_addr_loopback(&net_sin(&addr)->sin_addr), "Wrong address");
+
+	/* Verify the other way around */
+	test_sendto(new_sock, TEST_STR_SMALL, strlen(TEST_STR_SMALL), 0,
+		    (struct net_sockaddr *)&c_saddr, sizeof(c_saddr));
+
+	memset(&addr, 0, sizeof(addr));
+	addrlen = sizeof(addr);
+	test_recvfrom(c_sock, 0, &addr, &addrlen);
+	zassert_equal(addrlen, sizeof(struct net_sockaddr_in), "wrong addrlen");
+	zassert_equal(addr.sa_family, NET_AF_INET, "Wrong family");
+	zassert_equal(net_sin(&addr)->sin_port, net_htons(SERVER_PORT), "Wrong port");
+	zassert_true(net_ipv4_is_addr_loopback(&net_sin(&addr)->sin_addr), "Wrong address");
 
 	test_close(new_sock);
 	test_close(s_sock);
@@ -619,13 +662,13 @@ ZTEST_USER(net_socket_tcp, test_v6_sendto_recvfrom)
 	int new_sock;
 	struct net_sockaddr_in6 c_saddr;
 	struct net_sockaddr_in6 s_saddr;
-	struct net_sockaddr addr;
+	struct net_sockaddr addr = { 0 };
 	net_socklen_t addrlen = sizeof(addr);
 
-	prepare_sock_tcp_v6(MY_IPV6_ADDR, ANY_PORT, &c_sock, &c_saddr);
-
+	prepare_sock_tcp_v6(MY_IPV6_ADDR, CLIENT_PORT, &c_sock, &c_saddr);
 	prepare_sock_tcp_v6(MY_IPV6_ADDR, SERVER_PORT, &s_sock, &s_saddr);
 
+	test_bind(c_sock, (struct net_sockaddr *)&c_saddr, sizeof(c_saddr));
 	test_bind(s_sock, (struct net_sockaddr *)&s_saddr, sizeof(s_saddr));
 	test_listen(s_sock);
 
@@ -635,12 +678,37 @@ ZTEST_USER(net_socket_tcp, test_v6_sendto_recvfrom)
 
 	test_accept(s_sock, &new_sock, &addr, &addrlen);
 	zassert_equal(addrlen, sizeof(struct net_sockaddr_in6), "wrong addrlen");
+	zassert_equal(addr.sa_family, NET_AF_INET6, "Wrong family");
+	zassert_equal(net_sin6(&addr)->sin6_port, net_htons(CLIENT_PORT), "Wrong port");
+	zassert_true(net_ipv6_is_addr_loopback(&net_sin6(&addr)->sin6_addr), "Wrong address");
 
+	memset(&addr, 0, sizeof(addr));
+	addrlen = sizeof(addr);
 	test_recvfrom(new_sock, ZSOCK_MSG_PEEK, &addr, &addrlen);
 	zassert_equal(addrlen, sizeof(struct net_sockaddr_in6), "wrong addrlen");
+	zassert_equal(addr.sa_family, NET_AF_INET6, "Wrong family");
+	zassert_equal(net_sin6(&addr)->sin6_port, net_htons(CLIENT_PORT), "Wrong port");
+	zassert_true(net_ipv6_is_addr_loopback(&net_sin6(&addr)->sin6_addr), "Wrong address");
 
+	memset(&addr, 0, sizeof(addr));
+	addrlen = sizeof(addr);
 	test_recvfrom(new_sock, 0, &addr, &addrlen);
 	zassert_equal(addrlen, sizeof(struct net_sockaddr_in6), "wrong addrlen");
+	zassert_equal(addr.sa_family, NET_AF_INET6, "Wrong family");
+	zassert_equal(net_sin6(&addr)->sin6_port, net_htons(CLIENT_PORT), "Wrong port");
+	zassert_true(net_ipv6_is_addr_loopback(&net_sin6(&addr)->sin6_addr), "Wrong address");
+
+	/* Verify the other way around */
+	test_sendto(new_sock, TEST_STR_SMALL, strlen(TEST_STR_SMALL), 0,
+		    (struct net_sockaddr *)&c_saddr, sizeof(c_saddr));
+
+	memset(&addr, 0, sizeof(addr));
+	addrlen = sizeof(addr);
+	test_recvfrom(c_sock, 0, &addr, &addrlen);
+	zassert_equal(addrlen, sizeof(struct net_sockaddr_in6), "wrong addrlen");
+	zassert_equal(addr.sa_family, NET_AF_INET6, "Wrong family");
+	zassert_equal(net_sin6(&addr)->sin6_port, net_htons(SERVER_PORT), "Wrong port");
+	zassert_true(net_ipv6_is_addr_loopback(&net_sin6(&addr)->sin6_addr), "Wrong address");
 
 	test_close(new_sock);
 	test_close(s_sock);
@@ -722,7 +790,7 @@ ZTEST_USER(net_socket_tcp, test_v4_sendto_recvmsg)
 	int new_sock;
 	struct net_sockaddr_in c_saddr;
 	struct net_sockaddr_in s_saddr;
-	struct net_sockaddr addr;
+	struct net_sockaddr addr = { 0 };
 	net_socklen_t addrlen = sizeof(addr);
 #define MAX_BUF_LEN 64
 #define SMALL_BUF_LEN (sizeof(TEST_STR_SMALL) - 1 - 2)
@@ -733,9 +801,10 @@ ZTEST_USER(net_socket_tcp, test_v4_sendto_recvmsg)
 	struct net_msghdr msg;
 	int i, len;
 
-	prepare_sock_tcp_v4(MY_IPV4_ADDR, ANY_PORT, &c_sock, &c_saddr);
+	prepare_sock_tcp_v4(MY_IPV4_ADDR, CLIENT_PORT, &c_sock, &c_saddr);
 	prepare_sock_tcp_v4(MY_IPV4_ADDR, SERVER_PORT, &s_sock, &s_saddr);
 
+	test_bind(c_sock, (struct net_sockaddr *)&c_saddr, sizeof(c_saddr));
 	test_bind(s_sock, (struct net_sockaddr *)&s_saddr, sizeof(s_saddr));
 	test_listen(s_sock);
 
@@ -745,11 +814,16 @@ ZTEST_USER(net_socket_tcp, test_v4_sendto_recvmsg)
 
 	test_accept(s_sock, &new_sock, &addr, &addrlen);
 	zassert_equal(addrlen, sizeof(struct net_sockaddr_in), "wrong addrlen");
+	zassert_equal(addr.sa_family, NET_AF_INET, "Wrong family");
+	zassert_equal(net_sin(&addr)->sin_port, net_htons(CLIENT_PORT), "Wrong port");
+	zassert_true(net_ipv4_is_addr_loopback(&net_sin(&addr)->sin_addr), "Wrong address");
 
 	/* Read data first in one chunk */
 	io_vector[0].iov_base = buf;
 	io_vector[0].iov_len = sizeof(buf);
 
+	memset(&addr, 0, sizeof(addr));
+	addrlen = sizeof(addr);
 	memset(&msg, 0, sizeof(msg));
 	msg.msg_iov = io_vector;
 	msg.msg_iovlen = 1;
@@ -762,6 +836,10 @@ ZTEST_USER(net_socket_tcp, test_v4_sendto_recvmsg)
 	zassert_equal(msg.msg_iov[0].iov_len, sizeof(buf),
 		      "recvmsg should not modify buffer length");
 	zassert_mem_equal(buf, TEST_STR_SMALL, len, "wrong data (%s)", buf);
+	zassert_equal(msg.msg_namelen, sizeof(struct net_sockaddr_in), "wrong addrlen");
+	zassert_equal(addr.sa_family, NET_AF_INET, "Wrong family");
+	zassert_equal(net_sin(&addr)->sin_port, net_htons(CLIENT_PORT), "Wrong port");
+	zassert_true(net_ipv4_is_addr_loopback(&net_sin(&addr)->sin_addr), "Wrong address");
 
 	/* Then in two chunks */
 	io_vector[0].iov_base = buf2;
@@ -769,6 +847,8 @@ ZTEST_USER(net_socket_tcp, test_v4_sendto_recvmsg)
 	io_vector[1].iov_base = buf;
 	io_vector[1].iov_len = sizeof(buf);
 
+	memset(&addr, 0, sizeof(addr));
+	addrlen = sizeof(addr);
 	memset(&msg, 0, sizeof(msg));
 	msg.msg_iov = io_vector;
 	msg.msg_iovlen = 2;
@@ -787,6 +867,10 @@ ZTEST_USER(net_socket_tcp, test_v4_sendto_recvmsg)
 	len -= msg.msg_iov[0].iov_len;
 	zassert_mem_equal(msg.msg_iov[1].iov_base, &TEST_STR_SMALL[msg.msg_iov[0].iov_len],
 			  len, "wrong data in %s", "iov[1]");
+	zassert_equal(msg.msg_namelen, sizeof(struct net_sockaddr_in), "wrong addrlen");
+	zassert_equal(addr.sa_family, NET_AF_INET, "Wrong family");
+	zassert_equal(net_sin(&addr)->sin_port, net_htons(CLIENT_PORT), "Wrong port");
+	zassert_true(net_ipv4_is_addr_loopback(&net_sin(&addr)->sin_addr), "Wrong address");
 
 	/* Send larger test buffer */
 	test_sendto(c_sock, TEST_STR_LONG, strlen(TEST_STR_LONG), 0,
@@ -800,6 +884,8 @@ ZTEST_USER(net_socket_tcp, test_v4_sendto_recvmsg)
 	io_vector[2].iov_base = buf3;
 	io_vector[2].iov_len = sizeof(buf3);
 
+	memset(&addr, 0, sizeof(addr));
+	addrlen = sizeof(addr);
 	memset(&msg, 0, sizeof(msg));
 	msg.msg_iov = io_vector;
 	msg.msg_iovlen = 3;
@@ -827,6 +913,10 @@ ZTEST_USER(net_socket_tcp, test_v4_sendto_recvmsg)
 			  &TEST_STR_LONG[msg.msg_iov[0].iov_len + msg.msg_iov[1].iov_len],
 			  msg.msg_iov[2].iov_len,
 			  "wrong data in %s", "iov[2]");
+	zassert_equal(msg.msg_namelen, sizeof(struct net_sockaddr_in), "wrong addrlen");
+	zassert_equal(addr.sa_family, NET_AF_INET, "Wrong family");
+	zassert_equal(net_sin(&addr)->sin_port, net_htons(CLIENT_PORT), "Wrong port");
+	zassert_true(net_ipv4_is_addr_loopback(&net_sin(&addr)->sin_addr), "Wrong address");
 
 	test_close(new_sock);
 	test_close(s_sock);
@@ -2681,6 +2771,159 @@ ZTEST(net_socket_tcp, test_v6_listen_backlog)
 	test_common_listen_backlog(NET_AF_INET6, 0);
 	test_common_listen_backlog(NET_AF_INET6, 1);
 	test_common_listen_backlog(NET_AF_INET6, TEST_BACKLOG_MAX);
+}
+
+enum {
+	SEND_DATA_USING_SEND_ALL = 1,
+	SEND_DATA_USING_SENDMSG_ALL,
+};
+
+static void test_zsock_send_all_data(int method)
+{
+	int c_sock;
+	int s_sock;
+	int new_sock;
+	struct net_sockaddr_in c_saddr;
+	struct net_sockaddr_in s_saddr;
+	struct net_sockaddr addr;
+	net_socklen_t addrlen = sizeof(addr);
+#define SENDALL_MAX_BUF_LEN 2048
+	static char send_buf[SENDALL_MAX_BUF_LEN];
+	static char recv_buf[SENDALL_MAX_BUF_LEN];
+	struct net_iovec io_vector[3];
+	struct net_msghdr msg;
+	ssize_t recved;
+	int i, send_len, recv_len, remaining, split_point;
+	size_t sent_len = 0;
+
+	prepare_sock_tcp_v4(MY_IPV4_ADDR, ANY_PORT, &c_sock, &c_saddr);
+	prepare_sock_tcp_v4(MY_IPV4_ADDR, SERVER_PORT, &s_sock, &s_saddr);
+
+	/* Set smaller receive buffer to force TCP to split the data
+	 * into multiple segments.
+	 */
+	zsock_setsockopt(s_sock, ZSOCK_SOL_SOCKET, ZSOCK_SO_RCVBUF,
+			 &(int){ SENDALL_MAX_BUF_LEN / 2 }, sizeof(int));
+
+	test_bind(s_sock, (struct net_sockaddr *)&s_saddr, sizeof(s_saddr));
+	test_listen(s_sock);
+
+	test_connect(c_sock, (struct net_sockaddr *)&s_saddr, sizeof(s_saddr));
+
+	for (i = 0; i < sizeof(send_buf); i++) {
+		send_buf[i] = TEST_STR_LONG[i % (sizeof(TEST_STR_LONG) - 1)];
+	}
+
+	if (method == SEND_DATA_USING_SEND_ALL) {
+		test_send_all(c_sock, send_buf, sizeof(send_buf), 0,
+			      K_MSEC(1000), &sent_len);
+	} else if (method == SEND_DATA_USING_SENDMSG_ALL) {
+		/* Send data using sendmsg_all */
+		io_vector[0].iov_base = send_buf;
+		io_vector[0].iov_len = sizeof(send_buf);
+
+		memset(&msg, 0, sizeof(msg));
+		msg.msg_iov = io_vector;
+		msg.msg_iovlen = 1;
+
+		test_sendmsg_all(c_sock, &msg, 0, K_MSEC(1000), &sent_len);
+	} else {
+		zassert_true(false, "invalid send method");
+	}
+
+	zassert_equal(sent_len, sizeof(send_buf), "invalid length sent");
+
+	test_accept(s_sock, &new_sock, &addr, &addrlen);
+	zassert_equal(addrlen, sizeof(struct net_sockaddr_in), "wrong addrlen");
+
+	/* Read data in two chunks */
+	io_vector[0].iov_base = recv_buf;
+	io_vector[0].iov_len = sizeof(recv_buf) / 2;
+
+	split_point = io_vector[0].iov_len;
+
+	memset(&msg, 0, sizeof(msg));
+	msg.msg_iov = io_vector;
+	msg.msg_iovlen = 1;
+	msg.msg_name = &addr;
+	msg.msg_namelen = addrlen;
+
+	for (i = 0, send_len = 0; i < msg.msg_iovlen; i++) {
+		send_len += msg.msg_iov[i].iov_len;
+	}
+
+	remaining = send_len;
+	while (remaining > 0) {
+		recved = zsock_recvmsg(new_sock, &msg, 0);
+		if (recved < 0) {
+			break;
+		}
+
+		if (recved > 0) {
+			remaining -= recved;
+		}
+
+		/* There should be two rounds of recv. Adjust the iov_base pointer
+		 * so that the recv_buf is filled correctly.
+		 */
+		io_vector[0].iov_base = recv_buf + split_point;
+		io_vector[0].iov_len = sizeof(recv_buf) - split_point;
+	}
+
+	for (i = 0, recv_len = 0; i < msg.msg_iovlen; i++) {
+		recv_len += msg.msg_iov[i].iov_len;
+	}
+
+	zassert_equal(send_len, recv_len, "invalid length received");
+	zassert_mem_equal(recv_buf, send_buf, recv_len, "invalid data received");
+
+	test_close(new_sock);
+	test_close(s_sock);
+	test_close(c_sock);
+
+	k_sleep(TCP_TEARDOWN_TIMEOUT);
+}
+
+ZTEST(net_socket_tcp, test_zsock_send_all_data)
+{
+	test_zsock_send_all_data(SEND_DATA_USING_SEND_ALL);
+}
+
+ZTEST(net_socket_tcp, test_zsock_sendmsg_all_data)
+{
+	test_zsock_send_all_data(SEND_DATA_USING_SENDMSG_ALL);
+}
+
+ZTEST(net_socket_tcp, test_zsock_sendmsg_all_failure)
+{
+	int sock, ret;
+	size_t sent_len = 1; /* set to non-zero value to verify it is reset */
+	struct net_sockaddr_in addr;
+	struct net_msghdr msg = { 0 };
+
+	prepare_sock_udp_v4(MY_IPV4_ADDR, SERVER_PORT, &sock,
+			    (struct net_sockaddr_in *)&addr);
+
+	ret = zsock_sendmsg_all(sock, &msg, 0, K_FOREVER, &sent_len);
+	zassert_equal(sent_len, 0, "sendmsg_all should not have sent data");
+	zassert_equal(ret, -EOPNOTSUPP, "sendmsg_all should have failed, ret %d", ret);
+	test_close(sock);
+}
+
+ZTEST(net_socket_tcp, test_zsock_send_all_failure)
+{
+	int sock, ret;
+	size_t sent_len = 1; /* set to non-zero value to verify it is reset */
+	struct net_sockaddr_in addr;
+	const char *buf = TEST_STR_SMALL;
+
+	prepare_sock_udp_v4(MY_IPV4_ADDR, SERVER_PORT, &sock,
+			    (struct net_sockaddr_in *)&addr);
+
+	ret = zsock_send_all(sock, buf, strlen(buf), 0, K_FOREVER, &sent_len);
+	zassert_equal(sent_len, 0, "send_all should not have sent data");
+	zassert_equal(ret, -EOPNOTSUPP, "send_all should have failed, ret %d", ret);
+	test_close(sock);
 }
 
 static void after(void *arg)

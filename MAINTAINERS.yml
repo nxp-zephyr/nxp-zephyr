@@ -1327,6 +1327,7 @@ Documentation Infrastructure:
     - boards/shields/canis_canpico/
     - boards/shields/mcp2515/
     - boards/shields/mikroe_can_fd_6_click/
+    - boards/shields/mikroe_mcp251x_click/
     - boards/shields/mikroe_mcp251xfd_click/
     - boards/shields/tcan4550evm/
     - doc/connectivity/canbus/
@@ -1578,6 +1579,8 @@ Documentation Infrastructure:
   status: maintained
   maintainers:
     - finikorg
+  collaborators:
+    - yvesll
   files:
     - drivers/edac/
     - dts/bindings/edac/
@@ -2778,6 +2781,7 @@ Filesystems:
   collaborators:
     - Laczen
     - nashif
+    - rghaddab
   files:
     - include/zephyr/fs/
     - samples/subsys/fs/
@@ -3708,6 +3712,13 @@ NXP Platforms (MCU):
         - boards/nxp/vmu*/
         - boards/nxp/rddrone_fmuk66/
         - tests/boards/vmu_rt1170/
+    - name: NXP MCU k32l
+      collaborators:
+        - iia
+      files:
+        - boards/nxp/frdm_k32l2b3/
+        - dts/arm/nxp/nxp_k32l2b3.dtsi
+        - soc/nxp/kinetis/k32lx/
   labels:
     - "platform: NXP MCU"
     - "platform: NXP"
@@ -4442,7 +4453,6 @@ Raspberry Pi Pico Platforms:
   maintainers:
     - soburi
   collaborators:
-    - yonsch
     - threeeights
     - ajf58
   files:
@@ -5332,7 +5342,6 @@ USB-C:
   status: maintained
   maintainers:
     - sambhurst
-  collaborators:
     - keith-zephyr
   files:
     - drivers/usb_c/
@@ -5770,6 +5779,7 @@ West:
   status: maintained
   maintainers:
     - sreeramIfx
+    - teburd
   collaborators:
     - parthitce
     - talih0
@@ -5815,10 +5825,9 @@ West:
   maintainers:
     - anangl
     - nika-nordic
-    - masz-nordic
+    - nordic-krch
     - carlescufi
   collaborators:
-    - nordic-krch
     - kl-cruz
     - magp-nordic
     - jaz1-nordic
@@ -5912,7 +5921,6 @@ West:
   maintainers:
     - soburi
   collaborators:
-    - yonsch
     - threeeights
     - ajf58
   files:
@@ -6249,7 +6257,6 @@ West:
   status: maintained
   maintainers:
     - eriktamlin
-    - aronlander-pe
   files:
     - modules/percepio/
   labels:
@@ -6528,7 +6535,7 @@ nRF Platforms:
   status: maintained
   maintainers:
     - anangl
-    - masz-nordic
+    - nordic-krch
     - bjarki-andreasen
   collaborators:
     - jaz1-nordic

@@ -146,11 +146,11 @@ Supported Features
 
 .. zephyr:board-supported-hw::
 
-Bluetooth |reg| support
------------------------
+Bluetooth® support
+------------------
 
-Bluetooth |reg| Low Energy support is enabled on nucleo_wba55cg. To build a zephyr sample using this board
-you first need to install Bluetooth |reg| Controller libraries available in Zephyr as binary
+Bluetooth® Low Energy support is enabled on nucleo_wba55cg. To build a zephyr sample using this board
+you first need to install Bluetooth® Controller libraries available in Zephyr as binary
 blobs.
 
 To fetch Binary Blobs:
@@ -232,7 +232,11 @@ Debugging
 Debugging using OpenOCD
 -----------------------
 
-You can debug an application in the usual way using OpenOCD. Here is an example for the
+OpenOCD added STM32WB6xx full support in September 2023 (`OpenOCD WBA5xx commit`_),
+after v0.12.0 release tag. Zephyr SDK fork of OpenOCD includes this STM32WBA5x support.
+
+Assuming your OpenOCD tool (local or from the Zephyr SDK) supports STM32WBA5x,
+you can debug an application in the usual way using OpenOCD. Here is an example for the
 :zephyr:code-sample:`blinky` application.
 
 .. zephyr-app-commands::
@@ -264,3 +268,6 @@ For that:
 
 .. _STM32CubeProgrammer:
    https://www.st.com/en/development-tools/stm32cubeprog.html
+
+.. _OpenOCD WBA5xx commit:
+   https://github.com/openocd-org/openocd/commit/870769b0ba9f4dae6ada9d8b1a40d75bd83aaa06
