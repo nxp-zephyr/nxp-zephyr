@@ -221,6 +221,10 @@ Controller Area Network (CAN)
   selects between the named input clocks ``clksrc0`` and ``clksrc1`` for use as the CAN protocol
   engine clock.
 
+* Renamed the NXP LPC family MCAN driver Kconfig option ``CONFIG_CAN_MCUX_MCAN`` to
+  :kconfig:option:`CONFIG_CAN_NXP_LPC_MCAN` as this driver is not based on the NXP MCUXpresso HAL
+  (:github:`103679`).
+
 Counter
 =======
 
@@ -582,6 +586,34 @@ MEMC
   Hard-coded default values in drivers, of 320 (:dtcompatible:`st,stm32-xspi-psram`) and 129
   (:dtcompatible:`st,stm32-ospi-psram`), have been removed.
 
+NXP
+===
+
+* NXP DTSI files were moved into family-specific subdirectories under ``dts/arm/nxp``
+  to improve maintainability and discoverability and to match the structure under
+  ``soc/nxp``. Devicetree include paths must be updated for moved files. Update
+  includes of the form ``#include <nxp/nxp_*.dtsi>`` to use the correct family
+  subdirectory. (:github:`101243`).
+
+  Example:
+
+  .. code-block:: dts
+
+    /* Before */
+    #include <nxp/nxp_rt1060.dtsi>
+
+    /* After */
+    #include <nxp/imxrt/nxp_rt1060.dtsi>
+
+  This change only applies to NXP ARM SoC include files that were moved from ``dts/arm/nxp``.
+  Do not change includes for DTSI files that live elsewhere (for example under ``dts/arm64/nxp``).
+
+  To locate affected includes, you can search for the old include prefix:
+
+  .. code-block:: console
+
+    git grep "#include <nxp/nxp_" -- '*.dtsi' '*.dts' '*.overlay'
+
 QSPI
 ====
 
@@ -753,6 +785,27 @@ Video
 * The :dtcompatible:`ovti,ov2640` reset pin handling has been corrected, resulting in an inverted
   active level compared to before, to match the active level expected by the sensor.
 
+Watchdog
+========
+
+  * The semantics of :kconfig:option:`CONFIG_WDT_DISABLE_AT_BOOT` have been clarified: the expected
+    behavior when ``CONFIG_WDT_DISABLE_AT_BOOT=n``, which was unclear and implemented inconsistently
+    across drivers, is now explicitly documented in :kconfig:option:`CONFIG_WDT_DISABLE_AT_BOOT`'s
+    description (refer to it for more details).
+
+    All in-tree watchdog drivers have been updated to follow the now documented semantics.
+
+    Notably, ``CONFIG_WDT_DISABLE_AT_BOOT=n`` can no longer be used to have watchdog(s) enabled at
+    boot "*automatically*". Users which relied on this behavior must update their application to
+    explicitly configure a watchdog, as done in the :zephyr:code-sample:`watchdog`. The following
+    Kconfig options related to this incorrect usage have been removed:
+
+      * ``CONFIG_IWDG_STM32_INITIAL_TIMEOUT``
+      * ``CONFIG_WDT_RPI_PICO_INITIAL_TIMEOUT``
+      * ``CONFIG_WDT_CC13XX_CC26XX_INITIAL_TIMEOUT``
+      * ``CONFIG_WDT_CC23X0_INITIAL_TIMEOUT``
+      * ``CONFIG_WDT_CC32XX_INITIAL_TIMEOUT``
+
 .. zephyr-keep-sorted-stop
 
 Bluetooth
@@ -834,10 +887,17 @@ Networking
   to automatically enable all the dependencies of a given ciphersuite, and more can be added as
   needed following the same pattern.
 
+CoAP
+====
+
 * Resource-related metadata for CoAP ``.well-known/core`` responses is now configured with a dedicated
   :c:member:`coap_resource.metadata` pointer instead of :c:member:`coap_resource.user_data`, which
   should remain for the application to use exclusively. Applications implementing CoAP
   ``.well-known/core`` handling should be updated to use the new pointer.
+
+* ``COAP_RESPONSE_CODE_OK`` 2.00 response code definition has been removed as it's not a valid
+  response code - it's not defined in :rfc:`7252` and is not assigned in the IANA registry
+  (https://www.iana.org/assignments/core-parameters/core-parameters.xhtml#response-codes).
 
 Modem
 *****
