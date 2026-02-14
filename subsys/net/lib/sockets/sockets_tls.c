@@ -958,6 +958,76 @@ static bool crt_is_pem(const unsigned char *buf, size_t buflen)
 	return (buflen != 0 && buf[buflen - 1] == '\0' &&
 		strstr((const char *)buf, "-----BEGIN CERTIFICATE-----") != NULL);
 }
+
+static void tls_log_failed_ca_bundle_entries(const unsigned char *buf, size_t buflen)
+{
+	static const char begin_mark[] = "-----BEGIN CERTIFICATE-----";
+	static const char end_mark[] = "-----END CERTIFICATE-----";
+	const char *scan = (const char *)buf;
+	const char *limit = (const char *)buf + buflen;
+	int cert_idx = 0;
+	int failed = 0;
+
+	while (scan < limit) {
+		const char *begin = strstr(scan, begin_mark);
+		const char *end;
+		const char *next;
+		size_t cert_len;
+		unsigned char *cert_buf;
+		mbedtls_x509_crt cert;
+		char subject[160];
+		int ret;
+		int subject_len;
+
+		if ((begin == NULL) || (begin >= limit)) {
+			break;
+		}
+
+		end = strstr(begin, end_mark);
+		if ((end == NULL) || (end >= limit)) {
+			break;
+		}
+
+		next = end + (sizeof(end_mark) - 1);
+		while ((next < limit) && ((*next == '\r') || (*next == '\n'))) {
+			next++;
+		}
+
+		cert_len = (size_t)(next - begin);
+		cert_idx++;
+
+		cert_buf = k_malloc(cert_len + 1);
+		if (cert_buf == NULL) {
+			NET_WARN("CA diagnostics: OOM while parsing bundle cert #%d", cert_idx);
+			break;
+		}
+
+		memcpy(cert_buf, begin, cert_len);
+		cert_buf[cert_len] = '\0';
+
+		mbedtls_x509_crt_init(&cert);
+		ret = mbedtls_x509_crt_parse(&cert, cert_buf, cert_len + 1);
+		if (ret < 0) {
+			subject_len = mbedtls_x509_dn_gets(subject, sizeof(subject), &cert.subject);
+			if (subject_len > 0) {
+				NET_WARN("CA diagnostics: cert #%d parse failed: -0x%x, subject=\"%s\"",
+					 cert_idx, -ret, subject);
+			} else {
+				NET_WARN("CA diagnostics: cert #%d parse failed: -0x%x, subject=<unknown>",
+					 cert_idx, -ret);
+			}
+			failed++;
+		}
+		mbedtls_x509_crt_free(&cert);
+		k_free(cert_buf);
+
+		scan = next;
+	}
+
+	if (failed > 0) {
+		NET_WARN("CA diagnostics: failed certs in bundle: %d", failed);
+	}
+}
 #endif
 
 static int tls_add_ca_certificate(struct tls_context *tls,
@@ -965,9 +1035,9 @@ static int tls_add_ca_certificate(struct tls_context *tls,
 {
 #if defined(MBEDTLS_X509_CRT_PARSE_C)
 	int err;
+	const bool is_pem = crt_is_pem(ca_cert->buf, ca_cert->len);
 
-	if (tls->options.cert_nocopy == TLS_CERT_NOCOPY_NONE ||
-	    crt_is_pem(ca_cert->buf, ca_cert->len)) {
+	if (tls->options.cert_nocopy == TLS_CERT_NOCOPY_NONE || is_pem) {
 		err = mbedtls_x509_crt_parse(&tls->ca_chain, ca_cert->buf,
 					     ca_cert->len);
 	} else {
@@ -977,7 +1047,16 @@ static int tls_add_ca_certificate(struct tls_context *tls,
 	}
 
 	if (err != 0) {
-		NET_ERR("Failed to parse CA certificate, err: -0x%x", -err);
+		if ((err > 0) && is_pem) {
+			NET_WARN("CA diagnostics: bundle parse skipped %d cert(s), dumping failures",
+				 err);
+			tls_log_failed_ca_bundle_entries(ca_cert->buf, ca_cert->len);
+		}
+		if (err < 0) {
+			NET_ERR("Failed to parse CA certificate, err: -0x%x", -err);
+		} else {
+			NET_ERR("Failed to parse CA certificate bundle, skipped certs: %d", err);
+		}
 		return -EINVAL;
 	}
 
