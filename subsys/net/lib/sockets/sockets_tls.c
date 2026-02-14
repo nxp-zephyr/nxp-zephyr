@@ -958,6 +958,75 @@ static bool crt_is_pem(const unsigned char *buf, size_t buflen)
 	return (buflen != 0 && buf[buflen - 1] == '\0' &&
 		strstr((const char *)buf, "-----BEGIN CERTIFICATE-----") != NULL);
 }
+
+static void tls_log_ca_bundle_diagnostics(const unsigned char *buf, size_t buflen)
+{
+	static const char begin_mark[] = "-----BEGIN CERTIFICATE-----";
+	static const char end_mark[] = "-----END CERTIFICATE-----";
+	const char *scan = (const char *)buf;
+	const char *limit = (const char *)buf + buflen;
+	const int max_logged = 8;
+	int cert_count = 0;
+	int skipped_count = 0;
+	int logged_count = 0;
+
+	while (scan < limit) {
+		const char *begin = strstr(scan, begin_mark);
+		const char *end;
+		const char *next;
+		size_t cert_len;
+		unsigned char *cert_buf;
+		mbedtls_x509_crt cert;
+		int ret;
+
+		if ((begin == NULL) || (begin >= limit)) {
+			break;
+		}
+
+		end = strstr(begin, end_mark);
+		if ((end == NULL) || (end >= limit)) {
+			break;
+		}
+
+		next = end + (sizeof(end_mark) - 1);
+		while ((next < limit) && ((*next == '\r') || (*next == '\n'))) {
+			next++;
+		}
+
+		cert_len = (size_t)(next - begin);
+		cert_count++;
+
+		cert_buf = mbedtls_calloc(1, cert_len + 1);
+		if (cert_buf == NULL) {
+			NET_WARN("CA diagnostics: out of memory while checking cert #%d", cert_count);
+			return;
+		}
+
+		memcpy(cert_buf, begin, cert_len);
+		cert_buf[cert_len] = '\0';
+
+		mbedtls_x509_crt_init(&cert);
+		ret = mbedtls_x509_crt_parse(&cert, cert_buf, cert_len + 1);
+		mbedtls_x509_crt_free(&cert);
+		mbedtls_free(cert_buf);
+
+		if (ret < 0) {
+			skipped_count++;
+			if (logged_count < max_logged) {
+				NET_WARN("CA diagnostics: cert #%d parse failed: -0x%x",
+					 cert_count, -ret);
+				logged_count++;
+			}
+		}
+
+		scan = next;
+	}
+
+	if (skipped_count > 0) {
+		NET_WARN("CA diagnostics: skipped %d cert(s) out of %d; first %d error(s) logged",
+			 skipped_count, cert_count, MIN(skipped_count, max_logged));
+	}
+}
 #endif
 
 static int tls_add_ca_certificate(struct tls_context *tls,
@@ -965,9 +1034,9 @@ static int tls_add_ca_certificate(struct tls_context *tls,
 {
 #if defined(MBEDTLS_X509_CRT_PARSE_C)
 	int err;
+	const bool is_pem = crt_is_pem(ca_cert->buf, ca_cert->len);
 
-	if (tls->options.cert_nocopy == TLS_CERT_NOCOPY_NONE ||
-	    crt_is_pem(ca_cert->buf, ca_cert->len)) {
+	if (tls->options.cert_nocopy == TLS_CERT_NOCOPY_NONE || is_pem) {
 		err = mbedtls_x509_crt_parse(&tls->ca_chain, ca_cert->buf,
 					     ca_cert->len);
 	} else {
@@ -976,9 +1045,16 @@ static int tls_add_ca_certificate(struct tls_context *tls,
 							ca_cert->len);
 	}
 
-	if (err != 0) {
+	if (err < 0) {
 		NET_ERR("Failed to parse CA certificate, err: -0x%x", -err);
 		return -EINVAL;
+	}
+
+	if (err > 0) {
+		NET_WARN("Parsed CA certificate bundle with %d skipped cert(s)", err);
+		if (is_pem) {
+			tls_log_ca_bundle_diagnostics(ca_cert->buf, ca_cert->len);
+		}
 	}
 
 	return 0;
@@ -1320,6 +1396,37 @@ static int tls_mbedtls_init(struct tls_context *context, bool is_server)
 		 */
 		return -ENOMEM;
 	}
+
+	/*
+	 * Enforce protocol version per socket type selected at socket() call.
+	 * Zephyr stores the requested secure protocol in context->tls_version,
+	 * but mbedTLS defaults allow a full compiled-in range unless clamped.
+	 */
+	switch (context->tls_version) {
+	case IPPROTO_TLS_1_2:
+#if defined(CONFIG_MBEDTLS_TLS_VERSION_1_2)
+		mbedtls_ssl_conf_min_tls_version(&context->config,
+						 MBEDTLS_SSL_VERSION_TLS1_2);
+		mbedtls_ssl_conf_max_tls_version(&context->config,
+						 MBEDTLS_SSL_VERSION_TLS1_2);
+#else
+		return -ENOTSUP;
+#endif
+		break;
+	case IPPROTO_TLS_1_3:
+#if defined(CONFIG_MBEDTLS_TLS_VERSION_1_3)
+		mbedtls_ssl_conf_min_tls_version(&context->config,
+						 MBEDTLS_SSL_VERSION_TLS1_3);
+		mbedtls_ssl_conf_max_tls_version(&context->config,
+						 MBEDTLS_SSL_VERSION_TLS1_3);
+#else
+		return -ENOTSUP;
+#endif
+		break;
+	default:
+		break;
+	}
+
 	tls_set_max_frag_len(&context->config, context->type);
 
 #if defined(MBEDTLS_SSL_RENEGOTIATION)
