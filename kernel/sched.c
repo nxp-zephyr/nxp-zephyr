@@ -622,32 +622,20 @@ void z_unpend_thread_no_timeout(struct k_thread *thread)
 	}
 }
 
-void z_sched_wake_thread(struct k_thread *thread, bool is_timeout)
+void z_sched_wake_thread_locked(struct k_thread *thread)
 {
-	K_SPINLOCK(&_sched_spinlock) {
-		bool killed = (thread->base.thread_state &
-				(_THREAD_DEAD | _THREAD_ABORTING));
+	/* No K_SPINLOCK: caller must hold _sched_spinlock when calling */
+	bool killed = (thread->base.thread_state &
+			(_THREAD_DEAD | _THREAD_ABORTING));
 
-#ifdef CONFIG_EVENTS
-		bool do_nothing = thread->no_wake_on_timeout && is_timeout;
-
-		thread->no_wake_on_timeout = false;
-
-		if (do_nothing) {
-			continue;
+	if (!killed) {
+		/* The thread is not being killed */
+		if (thread->base.pended_on != NULL) {
+			unpend_thread_no_timeout(thread);
 		}
-#endif /* CONFIG_EVENTS */
-
-		if (!killed) {
-			/* The thread is not being killed */
-			if (thread->base.pended_on != NULL) {
-				unpend_thread_no_timeout(thread);
-			}
-			z_mark_thread_as_not_sleeping(thread);
-			ready_thread(thread);
-		}
+		z_mark_thread_as_not_sleeping(thread);
+		ready_thread(thread);
 	}
-
 }
 
 #ifdef CONFIG_SYS_CLOCK_EXISTS
@@ -657,7 +645,9 @@ void z_thread_timeout(struct _timeout *timeout)
 	struct k_thread *thread = CONTAINER_OF(timeout,
 					       struct k_thread, base.timeout);
 
-	z_sched_wake_thread(thread, true);
+	K_SPINLOCK(&_sched_spinlock) {
+		z_sched_wake_thread_locked(thread);
+	}
 }
 #endif /* CONFIG_SYS_CLOCK_EXISTS */
 
@@ -1127,7 +1117,11 @@ static inline void z_vrfy_k_reschedule(void)
 
 bool k_can_yield(void)
 {
-	return !(k_is_pre_kernel() || k_is_in_isr() ||
+	unsigned int k = arch_irq_lock();
+	bool irq_locked = !arch_irq_unlocked(k);
+
+	arch_irq_unlock(k);
+	return !(k_is_pre_kernel() || k_is_in_isr() || irq_locked ||
 		 z_is_idle_thread_object(_current));
 }
 
@@ -1559,14 +1553,21 @@ int z_sched_wait(struct k_spinlock *lock, k_spinlock_key_t key,
 	return ret;
 }
 
-int z_sched_waitq_walk(_wait_q_t  *wait_q,
-		       int (*func)(struct k_thread *, void *), void *data)
+int z_sched_waitq_walk(_wait_q_t *wait_q, _waitq_walk_cb_t walk_func,
+		       _waitq_post_walk_cb_t post_func, void *data)
 {
 	struct k_thread *thread;
 	int  status = 0;
 
 	K_SPINLOCK(&_sched_spinlock) {
-		_WAIT_Q_FOR_EACH(wait_q, thread) {
+#ifndef CONFIG_WAITQ_SCALABLE
+		struct k_thread *tmp;
+
+		_WAIT_Q_FOR_EACH_SAFE(wait_q, thread, tmp)
+#else /* !CONFIG_WAITQ_SCALABLE */
+		_WAIT_Q_FOR_EACH(wait_q, thread)
+#endif /* !CONFIG_WAITQ_SCALABLE */
+		{
 
 			/*
 			 * Invoke the callback function on each waiting thread
@@ -1574,10 +1575,19 @@ int z_sched_waitq_walk(_wait_q_t  *wait_q,
 			 * it returns 0.
 			 */
 
-			status = func(thread, data);
+			status = walk_func(thread, data);
 			if (status != 0) {
 				break;
 			}
+		}
+
+		/*
+		 * Invoke post-walk callback. This is done while
+		 * still holding _sched_spinlock to enable atomic
+		 * operations (from the scheduler's point of view).
+		 */
+		if (post_func != NULL) {
+			post_func(status, data);
 		}
 	}
 

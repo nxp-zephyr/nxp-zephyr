@@ -233,11 +233,13 @@ endif()
 
 zephyr_library_sources_ifdef(CONFIG_SILABS_SISDK_SYSTEM         ${PERIPHERAL_DIR}/src/sl_hal_system.c)
 
-#Keep em_iadc.c for compatibility for now. Not used anymore.
+# Keep em_iadc.c for compatibility for now. Not used anymore.
 zephyr_library_sources_ifdef(CONFIG_SILABS_SISDK_IADC         ${EMLIB_DIR}/src/em_iadc.c)
 zephyr_library_sources_ifdef(CONFIG_SILABS_SISDK_IADC         ${PERIPHERAL_DIR}/src/sl_hal_iadc.c)
 
+# Keep em_burtc.c becaused used in gecko_burtc_timer.c
 zephyr_library_sources_ifdef(CONFIG_SILABS_SISDK_BURTC     ${EMLIB_DIR}/src/em_burtc.c)
+zephyr_library_sources_ifdef(CONFIG_SILABS_SISDK_BURTC     ${PERIPHERAL_DIR}/src/sl_hal_burtc.c)
 
 # Device Init
 if(CONFIG_SILABS_SISDK_DEVICE_INIT)
@@ -317,8 +319,13 @@ if(CONFIG_SILABS_SISDK_I2C)
 endif()
 
 zephyr_library_sources_ifdef(CONFIG_SILABS_SISDK_LETIMER   ${PERIPHERAL_DIR}/src/sl_hal_letimer.c)
-zephyr_library_sources_ifdef(CONFIG_SILABS_SISDK_TIMER     ${PERIPHERAL_DIR}/src/sl_hal_timer.c)
 zephyr_library_sources_ifdef(CONFIG_SILABS_SISDK_VDAC      ${PERIPHERAL_DIR}/src/sl_hal_vdac.c)
+
+zephyr_library_sources_ifdef(CONFIG_SILABS_SISDK_TIMER
+  ${PERIPHERAL_DIR}/src/sl_hal_timer.c
+  # em_timer.c is still needed e.g. by RAIL for Bluetooth CS
+  ${EMLIB_DIR}/src/em_timer.c
+)
 
 zephyr_library_sources_ifdef(CONFIG_SILABS_SISDK_LDMA
   ${EMDRV_DIR}/dmadrv/src/dmadrv.c

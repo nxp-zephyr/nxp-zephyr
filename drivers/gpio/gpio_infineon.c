@@ -34,7 +34,6 @@ struct gpio_cat1_config {
 #if (!CONFIG_SOC_FAMILY_INFINEON_CAT1C)
 	uint8_t intr_priority;
 #endif
-	int irq;
 };
 
 /* Data structure */
@@ -49,19 +48,6 @@ struct gpio_cat1_data {
 	sys_slist_t callbacks;
 };
 
-#if defined(CONFIG_SOC_FAMILY_INFINEON_PSOC4)
-typedef struct {
-	int irq;
-	uint8_t priority;
-	uint8_t num_devs;
-	const struct device *devs[DT_NUM_INST_STATUS_OKAY(DT_DRV_COMPAT)];
-} gpio_psoc4_irq_group_t;
-
-static struct k_spinlock gpio_psoc4_irq_lock;
-static gpio_psoc4_irq_group_t gpio_psoc4_irq_groups[DT_NUM_INST_STATUS_OKAY(DT_DRV_COMPAT)];
-static uint8_t gpio_psoc4_irq_group_count;
-#endif
-
 static inline uint32_t gpio_cat1_valid_mask(uint8_t ngpios)
 {
 #if defined(CONFIG_SOC_FAMILY_INFINEON_PSOC4)
@@ -70,6 +56,66 @@ static inline uint32_t gpio_cat1_valid_mask(uint8_t ngpios)
 	ARG_UNUSED(ngpios);
 	return 0xFFFFFFFFU;
 #endif
+}
+
+/**
+ * @brief Select the PDL drive mode for an input pin.
+ *
+ * @param[in]  flags      GPIO configuration flags.
+ * @param[out] drive_mode PDL drive mode constant.
+ */
+static void gpio_cat1_select_input_drive_mode(gpio_flags_t flags, uint32_t *drive_mode)
+{
+	if ((flags & GPIO_PULL_UP) && (flags & GPIO_PULL_DOWN)) {
+		*drive_mode = CY_GPIO_DM_PULLUP_DOWN;
+	} else if (flags & GPIO_PULL_UP) {
+		*drive_mode = CY_GPIO_DM_PULLUP;
+	} else if (flags & GPIO_PULL_DOWN) {
+		*drive_mode = CY_GPIO_DM_PULLDOWN;
+	} else {
+		*drive_mode = CY_GPIO_DM_HIGHZ;
+	}
+}
+
+/**
+ * @brief Select the PDL drive mode for an output pin.
+ *
+ * Maps push-pull, open-drain, and open-source configurations to the
+ * corresponding PDL drive mode.  Pull-up is only valid with open-drain;
+ * pull-down is only valid with open-source.
+ *
+ * @param[in]  flags      GPIO configuration flags.
+ * @param[out] drive_mode PDL drive mode constant.
+ *
+ * @retval 0        Success.
+ * @retval -ENOTSUP Unsupported pull direction for the requested mode.
+ */
+static int gpio_cat1_select_output_drive_mode(gpio_flags_t flags, uint32_t *drive_mode)
+{
+	if (!(flags & GPIO_SINGLE_ENDED)) {
+		if (flags & (GPIO_PULL_UP | GPIO_PULL_DOWN)) {
+			LOG_WRN("Pull-up/pull-down flags ignored"
+				" in push-pull output mode");
+		}
+		*drive_mode = CY_GPIO_DM_STRONG;
+		return 0;
+	}
+
+	if (flags & GPIO_LINE_OPEN_DRAIN) {
+		if (flags & GPIO_PULL_DOWN) {
+			return -ENOTSUP;
+		}
+		*drive_mode = (flags & GPIO_PULL_UP) ? CY_GPIO_DM_PULLUP : CY_GPIO_DM_OD_DRIVESLOW;
+	} else {
+		/* Open-source */
+		if (flags & GPIO_PULL_UP) {
+			return -ENOTSUP;
+		}
+		*drive_mode =
+			(flags & GPIO_PULL_DOWN) ? CY_GPIO_DM_PULLDOWN : CY_GPIO_DM_OD_DRIVESHIGH;
+	}
+
+	return 0;
 }
 
 static int gpio_cat1_configure(const struct device *dev, gpio_pin_t pin, gpio_flags_t flags)
@@ -85,30 +131,32 @@ static int gpio_cat1_configure(const struct device *dev, gpio_pin_t pin, gpio_fl
 
 	switch (flags & (GPIO_INPUT | GPIO_OUTPUT | GPIO_DISCONNECTED)) {
 	case GPIO_INPUT:
-		if ((flags & GPIO_PULL_UP) && (flags & GPIO_PULL_DOWN)) {
-			drive_mode = CY_GPIO_DM_PULLUP_DOWN;
-		} else if (flags & GPIO_PULL_UP) {
-			drive_mode = CY_GPIO_DM_PULLUP;
-			pin_val = true;
-		} else if (flags & GPIO_PULL_DOWN) {
-			drive_mode = CY_GPIO_DM_PULLDOWN;
-		} else {
-			drive_mode = CY_GPIO_DM_HIGHZ;
-		}
+		gpio_cat1_select_input_drive_mode(flags, &drive_mode);
+		/*
+		 * The data register must match the pull direction for resistive pull-up/pull-down
+		 * modes to work correctly: DR=1 for pull-up, DR=0 for pull-down.
+		 * For high-Z, DR is don't-care.
+		 */
+		pin_val = (flags & GPIO_PULL_UP) ? true : false;
 		break;
 
+	case (GPIO_INPUT | GPIO_OUTPUT):
+		__fallthrough;
 	case GPIO_OUTPUT:
-		if (flags & GPIO_SINGLE_ENDED) {
-			if (flags & GPIO_LINE_OPEN_DRAIN) {
-				drive_mode = CY_GPIO_DM_OD_DRIVESLOW;
-				pin_val = true;
-			} else {
-				drive_mode = CY_GPIO_DM_OD_DRIVESHIGH;
-				pin_val = false;
-			}
+		if (gpio_cat1_select_output_drive_mode(flags, &drive_mode) != 0) {
+			return -ENOTSUP;
+		}
+
+		if (flags & GPIO_OUTPUT_INIT_HIGH) {
+			pin_val = true;
+		} else if (flags & GPIO_OUTPUT_INIT_LOW) {
+			pin_val = false;
 		} else {
-			drive_mode = CY_GPIO_DM_STRONG;
-			pin_val = (flags & GPIO_OUTPUT_INIT_HIGH);
+			/*
+			 * If high or low init is not specified, the API expects the current output
+			 * pin state to be retained.
+			 */
+			pin_val = Cy_GPIO_ReadOut(base, pin);
 		}
 		break;
 
@@ -299,77 +347,14 @@ static DEVICE_API(gpio, gpio_cat1_api) = {
 	.get_pending_int = gpio_cat1_get_pending_int,
 };
 
-#if defined(CONFIG_SOC_FAMILY_INFINEON_PSOC4)
-static void gpio_psoc4_shared_isr(const void *arg)
-{
-	const gpio_psoc4_irq_group_t *group = arg;
-
-	for (uint8_t i = 0U; i < group->num_devs; i++) {
-		gpio_cat1_isr(group->devs[i]);
-	}
-}
-
-static void gpio_psoc4_register_irq(const struct device *dev)
-{
-	const struct gpio_cat1_config *const cfg = dev->config;
-
-	if (cfg->irq < 0) {
-		return;
-	}
-
-	k_spinlock_key_t key = k_spin_lock(&gpio_psoc4_irq_lock);
-	gpio_psoc4_irq_group_t *group = NULL;
-
-	if (gpio_psoc4_irq_group_count >= ARRAY_SIZE(gpio_psoc4_irq_groups)) {
-		k_spin_unlock(&gpio_psoc4_irq_lock, key);
-		return;
-	}
-
-	if (gpio_psoc4_irq_group_count > 0U) {
-		for (uint8_t i = 0U; i < gpio_psoc4_irq_group_count; i++) {
-			if (gpio_psoc4_irq_groups[i].irq == cfg->irq) {
-				group = &gpio_psoc4_irq_groups[i];
-				break;
-			}
-		}
-	}
-
-	if (group == NULL) {
-		__ASSERT(gpio_psoc4_irq_group_count < ARRAY_SIZE(gpio_psoc4_irq_groups),
-			 "Too many GPIO IRQ groups");
-		group = &gpio_psoc4_irq_groups[gpio_psoc4_irq_group_count++];
-		group->irq = cfg->irq;
-		group->priority = cfg->intr_priority;
-		group->num_devs = 0U;
-
-		irq_connect_dynamic(cfg->irq, cfg->intr_priority, gpio_psoc4_shared_isr, group, 0);
-		irq_enable(cfg->irq);
-	}
-
-	group->devs[group->num_devs++] = dev;
-
-	k_spin_unlock(&gpio_psoc4_irq_lock, key);
-}
-#endif
-
 #if defined(CONFIG_SOC_FAMILY_INFINEON_CAT1C)
 
 #define INTR_PRIORITY(n)
 #define ENABLE_INT(n)
 
-#elif defined(CONFIG_SOC_FAMILY_INFINEON_PSOC4)
-
-#define INTR_PRIORITY(n)                                                                           \
-	COND_CODE_1(DT_INST_IRQ_HAS_IDX(n, 0),                                                     \
-	(.irq = DT_INST_IRQN(n),                                                           \
-	.intr_priority = DT_INST_IRQ(n, priority)),                                       \
-	(.irq = -1, .intr_priority = 0))
-#define ENABLE_INT(n)
-
 #else
 
 #define INTR_PRIORITY(n) .intr_priority = DT_INST_IRQ_BY_IDX(n, 0, priority),
-
 #define ENABLE_INT(n)                                                                              \
 	IRQ_CONNECT(DT_INST_IRQN(n), DT_INST_IRQ(n, priority), gpio_cat1_isr,                      \
 		    DEVICE_DT_INST_GET(n), 0);                                                     \
@@ -377,27 +362,15 @@ static void gpio_psoc4_register_irq(const struct device *dev)
 
 #endif
 
-#if (CONFIG_SOC_FAMILY_INFINEON_PSOC4)
-#define GPIO_CAT1_INIT_FUNC(n)                                                                     \
-	static int gpio_ifx##n##_init(const struct device *dev)                                    \
-	{                                                                                          \
-		gpio_psoc4_register_irq(dev);                                                      \
-		return 0;                                                                          \
-	}
-#else
 #define GPIO_CAT1_INIT_FUNC(n)                                                                     \
 	static int gpio_ifx##n##_init(const struct device *dev)                                    \
 	{                                                                                          \
 		ENABLE_INT(n)                                                                      \
 		return 0;                                                                          \
 	}
-#endif
 #define GPIO_CAT1_INIT(n)                                                                          \
 	static const struct gpio_cat1_config gpio_cat1_config_##n = {                              \
-		.common =                                                                          \
-			{                                                                          \
-				.port_pin_mask = GPIO_PORT_PIN_MASK_FROM_DT_INST(n),               \
-			},                                                                         \
+		.common = GPIO_COMMON_CONFIG_FROM_DT_INST(n),                                      \
 		.ngpios = DT_INST_PROP_OR(n, ngpios, 8),                                           \
 		.regs = (GPIO_PRT_Type *)DT_INST_REG_ADDR(n),                                      \
 		INTR_PRIORITY(n)};                                                                 \

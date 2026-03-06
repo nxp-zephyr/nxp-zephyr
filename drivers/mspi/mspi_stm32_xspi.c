@@ -1047,7 +1047,7 @@ static int mspi_stm32_assign_cfg(struct mspi_stm32_data *data,
 	}
 	if ((param_mask & MSPI_DEVICE_CONFIG_CE_POL) != 0) {
 		ret = mspi_stm32_xspi_validate_ce_polarity(dev_cfg->ce_polarity);
-		if (ret == 0) {
+		if (ret != 0) {
 			goto end;
 		}
 		data->dev_cfg.ce_polarity = dev_cfg->ce_polarity;
@@ -1457,10 +1457,6 @@ static int mspi_stm32_xspi_activate(const struct device *dev)
 	int ret;
 	const struct mspi_stm32_conf *config = (struct mspi_stm32_conf *)dev->config;
 	const struct device *const clk = DEVICE_DT_GET(STM32_CLOCK_CONTROL_NODE);
-
-	if (!device_is_ready(clk)) {
-		return -ENODEV;
-	}
 
 	ret = pinctrl_apply_state(config->pcfg, PINCTRL_STATE_DEFAULT);
 	if (ret < 0) {

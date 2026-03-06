@@ -202,56 +202,6 @@ static int sx126x_set_rf_frequency(const struct device *dev, uint32_t freq)
 	return sx126x_hal_write_cmd(dev, SX126X_CMD_SET_RF_FREQUENCY, buf, 4);
 }
 
-static int sx126x_set_pa_config(const struct device *dev, uint8_t pa_duty_cycle,
-				uint8_t hp_max, uint8_t device_sel, uint8_t pa_lut)
-{
-	uint8_t buf[4] = { pa_duty_cycle, hp_max, device_sel, pa_lut };
-
-	return sx126x_hal_write_cmd(dev, SX126X_CMD_SET_PA_CONFIG, buf, 4);
-}
-
-static int sx126x_configure_pa_and_tx_params(const struct device *dev,
-					     int8_t power, uint32_t frequency,
-					     uint8_t ramp_time)
-{
-	const struct sx126x_hal_config *config = dev->config;
-	uint8_t pa_duty_cycle;
-	int8_t tx_power;
-	int ret;
-
-	if (config->is_sx1261) {
-		/*
-		 * SX1261: Low power PA, up to +15 dBm
-		 * For +15 dBm at >400 MHz, use higher paDutyCycle.
-		 * For lower power, use lower paDutyCycle for efficiency.
-		 */
-		pa_duty_cycle = (power >= SX1261_MAX_POWER && frequency >= 400000000)
-				? SX1261_PA_DUTY_CYCLE_HIGH
-				: SX1261_PA_DUTY_CYCLE_LOW;
-		ret = sx126x_set_pa_config(dev, pa_duty_cycle, SX1261_HP_MAX,
-					   SX126X_DEVICE_SEL_SX1261,
-					   SX126X_PA_LUT);
-		if (ret < 0) {
-			return ret;
-		}
-		tx_power = CLAMP(power, SX1261_MIN_POWER, SX1261_MAX_POWER_TX_PARAM);
-	} else {
-		/* SX1262: High power PA, up to +22 dBm */
-		ret = sx126x_set_pa_config(dev, SX1262_PA_DUTY_CYCLE,
-					   SX1262_HP_MAX,
-					   SX126X_DEVICE_SEL_SX1262,
-					   SX126X_PA_LUT);
-		if (ret < 0) {
-			return ret;
-		}
-		tx_power = CLAMP(power, SX1262_MIN_POWER, SX1262_MAX_POWER);
-	}
-
-	uint8_t buf[2] = { (uint8_t)tx_power, ramp_time };
-
-	return sx126x_hal_write_cmd(dev, SX126X_CMD_SET_TX_PARAMS, buf, 2);
-}
-
 static int sx126x_set_modulation_params(const struct device *dev,
 					uint8_t sf, uint8_t bw, uint8_t cr,
 					bool ldro)
@@ -575,6 +525,9 @@ static void sx126x_irq_work_handler(struct k_work *work)
 	if (irq_status & SX126X_IRQ_RX_TX_TIMEOUT) {
 		sx126x_handle_irq_timeout(dev);
 	}
+
+	/* Re-enable the DIO1 interrupt for the next event */
+	sx126x_hal_dio1_irq_enable(dev);
 }
 
 static int sx126x_lora_config(const struct device *dev,
@@ -603,7 +556,7 @@ static int sx126x_lora_config(const struct device *dev,
 	}
 
 	/* Configure PA and TX power based on chip variant and frequency */
-	ret = sx126x_configure_pa_and_tx_params(dev, config->tx_power,
+	ret = sx126x_hal_configure_tx_params(dev, config->tx_power,
 						config->frequency,
 						SX126X_RAMP_200_US);
 	if (ret < 0) {
@@ -942,7 +895,7 @@ static int sx126x_lora_test_cw(const struct device *dev, uint32_t frequency,
 	}
 
 	/* Set PA config and TX power */
-	ret = sx126x_configure_pa_and_tx_params(dev, tx_power, frequency,
+	ret = sx126x_hal_configure_tx_params(dev, tx_power, frequency,
 						SX126X_RAMP_200_US);
 	if (ret < 0) {
 		k_mutex_unlock(&data->lock);
@@ -974,7 +927,7 @@ static int sx126x_lora_test_cw(const struct device *dev, uint32_t frequency,
 	return 0;
 }
 
-static const struct lora_driver_api sx126x_lora_api = {
+static DEVICE_API(lora, sx126x_lora_api) = {
 	.config = sx126x_lora_config,
 	.send = sx126x_lora_send,
 	.send_async = sx126x_lora_send_async,
@@ -1024,6 +977,11 @@ static int sx126x_init(const struct device *dev)
 	return 0;
 }
 
+/*
+ * External SX126x device instantiation
+ */
+#ifdef CONFIG_LORA_SX126X_NATIVE_STANDALONE
+
 #define SX126X_INIT(inst, is_1261)						\
 	static struct sx126x_data sx126x_data_##inst;				\
 										\
@@ -1033,6 +991,7 @@ static int sx126x_init(const struct device *dev)
 		.reset = GPIO_DT_SPEC_INST_GET(inst, reset_gpios),		\
 		.busy = GPIO_DT_SPEC_INST_GET(inst, busy_gpios),		\
 		.dio1 = GPIO_DT_SPEC_INST_GET(inst, dio1_gpios),		\
+		.is_sx1261 = is_1261,						\
 		.antenna_enable = GPIO_DT_SPEC_INST_GET_OR(inst,		\
 							   antenna_enable_gpios, \
 							   {0}),		\
@@ -1040,7 +999,6 @@ static int sx126x_init(const struct device *dev)
 						      {0}),			\
 		.rx_enable = GPIO_DT_SPEC_INST_GET_OR(inst, rx_enable_gpios,	\
 						      {0}),			\
-		.is_sx1261 = is_1261,						\
 		.dio2_tx_enable = DT_INST_PROP(inst, dio2_tx_enable),		\
 		.dio3_tcxo_enable = DT_INST_NODE_HAS_PROP(inst, dio3_tcxo_voltage), \
 		.dio3_tcxo_voltage = DT_INST_PROP_OR(inst, dio3_tcxo_voltage, 0), \
@@ -1062,3 +1020,55 @@ DT_INST_FOREACH_STATUS_OKAY_VARGS(SX126X_INIT, false)
 #undef DT_DRV_COMPAT
 #define DT_DRV_COMPAT semtech_sx1261
 DT_INST_FOREACH_STATUS_OKAY_VARGS(SX126X_INIT, true)
+
+#undef DT_DRV_COMPAT
+
+#endif /* CONFIG_LORA_SX126X_NATIVE_STANDALONE */
+
+/*
+ * STM32WL Sub-GHz radio device instantiation
+ */
+#ifdef CONFIG_LORA_SX126X_NATIVE_STM32WL
+
+#define SX126X_STM32WL_PA_OUTPUT(inst)						\
+	COND_CODE_1(DT_INST_ENUM_IDX(inst, power_amplifier_output),		\
+		    (SX126X_PA_OUTPUT_RFO_HP), (SX126X_PA_OUTPUT_RFO_LP))
+
+#define SX126X_STM32WL_INIT(inst)						\
+	static struct sx126x_data sx126x_stm32wl_data_##inst;			\
+										\
+	static const struct sx126x_hal_config sx126x_stm32wl_config_##inst = {	\
+		.spi = SPI_DT_SPEC_INST_GET(inst,				\
+					    SPI_WORD_SET(8) | SPI_TRANSFER_MSB), \
+		.pa_output = SX126X_STM32WL_PA_OUTPUT(inst),			\
+		.rfo_lp_max_power = DT_INST_PROP(inst, rfo_lp_max_power),	\
+		.rfo_hp_max_power = DT_INST_PROP(inst, rfo_hp_max_power),	\
+		.antenna_enable = GPIO_DT_SPEC_INST_GET_OR(inst,		\
+							   antenna_enable_gpios, \
+							   {0}),		\
+		.tx_enable = GPIO_DT_SPEC_INST_GET_OR(inst, tx_enable_gpios,	\
+						      {0}),			\
+		.rx_enable = GPIO_DT_SPEC_INST_GET_OR(inst, rx_enable_gpios,	\
+						      {0}),			\
+		.dio2_tx_enable = DT_INST_PROP(inst, dio2_tx_enable),		\
+		.dio3_tcxo_enable = DT_INST_NODE_HAS_PROP(inst, dio3_tcxo_voltage), \
+		.dio3_tcxo_voltage = DT_INST_PROP_OR(inst, dio3_tcxo_voltage, 0), \
+		.tcxo_startup_delay_ms = DT_INST_PROP_OR(inst,			\
+						tcxo_power_startup_delay_ms, 10), \
+		.rx_boosted = DT_INST_PROP(inst, rx_boosted),			\
+		.regulator_ldo = DT_INST_PROP(inst, regulator_ldo),		\
+		.force_ldro = DT_INST_PROP(inst, force_ldro),			\
+	};									\
+										\
+	DEVICE_DT_INST_DEFINE(inst, sx126x_init, NULL,				\
+			      &sx126x_stm32wl_data_##inst,			\
+			      &sx126x_stm32wl_config_##inst,			\
+			      POST_KERNEL, CONFIG_LORA_INIT_PRIORITY,		\
+			      &sx126x_lora_api);
+
+#define DT_DRV_COMPAT st_stm32wl_subghz_radio
+DT_INST_FOREACH_STATUS_OKAY(SX126X_STM32WL_INIT)
+
+#undef DT_DRV_COMPAT
+
+#endif /* CONFIG_LORA_SX126X_NATIVE_STM32WL */
