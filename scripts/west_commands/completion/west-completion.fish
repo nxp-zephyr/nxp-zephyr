@@ -317,27 +317,14 @@ function __zephyr_west_complete_board
     end
 
     if test $is_cache_valid -eq 0
-        set -l boards (west boards --format="{name}|{qualifiers}|{vendor}" 2> /dev/null)
+        set -l targets (west boards --all-targets 2> /dev/null)
 
         if test $status -eq 0
             echo $manifest_hash > $cache_file
         end
 
-        for board in $boards
-            set -l split_b (string split "|" $board)
-            set -l name $split_b[1]
-            set -l qualifiers $split_b[2]
-            set -l vendor $split_b[3]
-
-            if test $vendor != "None"
-                for qualifier in (string split "," $qualifiers)
-                    printf "%s\t%s\n" $name/$qualifier $vendor >> $cache_file
-                end
-            else
-                for qualifier in (string split "," $qualifiers)
-                    printf "%s\n" $name/$qualifier >> $cache_file
-                end
-            end
+        for target in $targets
+            printf "%s\n" $target >> $cache_file
         end
     end
 
@@ -431,6 +418,7 @@ complete -c west -n "__zephyr_west_seen_subcommand_from completion; and __zephyr
 complete -c west -n "__zephyr_west_use_subcommand; and __zephyr_west_check_if_in_workspace" -ra boards -d "display information about supported boards"
 complete -c west -n "__zephyr_west_seen_subcommand_from boards" -o f -l format -d "format string"
 complete -c west -n "__zephyr_west_seen_subcommand_from boards" -o n -l name -d "name regex"
+complete -c west -n "__zephyr_west_seen_subcommand_from boards" -o a -l all-targets -d "output all board target combinations"
 complete -c west -n "__zephyr_west_seen_subcommand_from boards" -l arch-root -xa "(__zephyr_west_complete_directories)" -d "add an arch root"
 complete -c west -n "__zephyr_west_seen_subcommand_from boards" -l board-root -xa "(__zephyr_west_complete_directories)" -d "add a board root"
 complete -c west -n "__zephyr_west_seen_subcommand_from boards" -l soc-root -xa "(__zephyr_west_complete_directories)" -d "add a soc root"

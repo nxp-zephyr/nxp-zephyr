@@ -1533,7 +1533,7 @@ static void nxp_wifi_auto_connect(void)
 	params.psk_length = psk_len;
 
 	LOG_DBG("AutoConnect SSID[%s]", ssid);
-	nxp_wifi_connect(g_mlan.netif->if_dev->dev, &params);
+	nxp_wifi_connect(net_if_get_device(g_mlan.netif), &params);
 }
 #endif
 
@@ -2402,6 +2402,8 @@ static const struct zep_wpa_supp_dev_ops nxp_wifi_drv_ops = {
 	.remain_on_channel        = wifi_nxp_wpa_supp_remain_on_channel,
 	.cancel_remain_on_channel = wifi_nxp_wpa_supp_cancel_remain_on_channel,
 	.send_action_cancel_wait  = wifi_nxp_wpa_supp_cancel_action_wait,
+	.sched_scan               = wifi_nxp_wpa_supp_sched_scan,
+	.stop_sched_scan          = wifi_nxp_wpa_supp_stop_sched_scan,
 };
 #endif
 

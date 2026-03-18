@@ -1,6 +1,6 @@
 /*
  * Copyright (c) 2019 Mohamed ElShahawi (extremegtx@hotmail.com)
- * Copyright (c) 2023-2025 Espressif Systems (Shanghai) Co., Ltd.
+ * Copyright (c) 2023-2026 Espressif Systems (Shanghai) Co., Ltd.
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -61,6 +61,8 @@
 #include <zephyr/drivers/interrupt_controller/intc_esp32.h>
 
 #include <zephyr/drivers/clock_control.h>
+#include <zephyr/pm/device.h>
+#include <zephyr/pm/policy.h>
 #include <errno.h>
 #include <zephyr/sys/util.h>
 #include <esp_attr.h>
@@ -117,14 +119,56 @@ struct uart_esp32_data {
 	uhci_dev_t *uhci_dev;
 	const struct device *uart_dev;
 #endif
+#ifdef CONFIG_PM
+	uint8_t tx_ongoing;
+	bool pm_policy_state_on;
+#endif
 };
+
+#if CONFIG_PM
+#define TX_POLL       BIT(0)
+#define TX_INT_STREAM BIT(1)
+#define TX_ASYNC      BIT(2)
+#endif
 
 #define UART_FIFO_LIMIT	    (UART_LL_FIFO_DEF_LEN)
 #define UART_TX_FIFO_THRESH (CONFIG_UART_ESP32_TX_FIFO_THRESH)
 #define UART_RX_FIFO_THRESH (CONFIG_UART_ESP32_RX_FIFO_THRESH)
 
-#if CONFIG_UART_INTERRUPT_DRIVEN || CONFIG_UART_ASYNC_API
+#if CONFIG_UART_INTERRUPT_DRIVEN || CONFIG_UART_ASYNC_API || CONFIG_PM
 static void uart_esp32_isr(void *arg);
+#endif
+
+#if CONFIG_PM
+static void uart_esp32_pm_policy_state_lock_get(const struct device *dev, uint8_t tx_method)
+{
+	struct uart_esp32_data *data = dev->data;
+	unsigned int key = irq_lock();
+
+	data->tx_ongoing |= tx_method;
+
+	if (!data->pm_policy_state_on) {
+		data->pm_policy_state_on = true;
+		pm_policy_state_all_lock_get();
+	}
+
+	irq_unlock(key);
+}
+
+static void uart_esp32_pm_policy_state_lock_put(const struct device *dev, uint8_t tx_method)
+{
+	struct uart_esp32_data *data = dev->data;
+	unsigned int key = irq_lock();
+
+	data->tx_ongoing &= ~tx_method;
+
+	if (data->pm_policy_state_on && !data->tx_ongoing) {
+		data->pm_policy_state_on = false;
+		pm_policy_state_all_lock_put();
+	}
+
+	irq_unlock(key);
+}
 #endif
 
 static int uart_esp32_poll_in(const struct device *dev, unsigned char *p_char)
@@ -150,6 +194,16 @@ static void uart_esp32_poll_out(const struct device *dev, unsigned char c)
 	while (uart_hal_get_txfifo_len(&data->hal) == 0) {
 		; /* Wait */
 	}
+
+#if CONFIG_PM
+	if (!(data->tx_ongoing & TX_POLL)) {
+		uart_esp32_pm_policy_state_lock_get(dev, TX_POLL);
+
+		/* Enable ISR to aid controlling power lock */
+		uart_hal_clr_intsts_mask(&data->hal, UART_INTR_TX_DONE);
+		uart_hal_ena_intr_mask(&data->hal, UART_INTR_TX_DONE);
+	}
+#endif
 
 	/* Send a character */
 	uart_hal_write_txfifo(&data->hal, &c, 1, &written);
@@ -195,13 +249,12 @@ static int uart_esp32_config_get(const struct device *dev, struct uart_config *c
 	uart_stop_bits_t stop_bit;
 	uart_word_length_t data_bit;
 	uart_hw_flowcontrol_t hw_flow;
-	uart_sclk_t src_clk;
+	soc_module_clk_t src_clk;
 	uint32_t sclk_freq;
 	uint32_t calc_baud;
 
 	uart_hal_get_sclk(&data->hal, &src_clk);
-	esp_clk_tree_src_get_freq_hz((soc_module_clk_t)src_clk,
-		ESP_CLK_TREE_SRC_FREQ_PRECISION_CACHED, &sclk_freq);
+	esp_clk_tree_src_get_freq_hz(src_clk, ESP_CLK_TREE_SRC_FREQ_PRECISION_CACHED, &sclk_freq);
 
 	uart_hal_get_baudrate(&data->hal, &calc_baud, sclk_freq);
 	cfg->baudrate = uart_esp32_get_standard_baud(calc_baud);
@@ -266,7 +319,7 @@ static int uart_esp32_config_get(const struct device *dev, struct uart_config *c
 		return -ENOTSUP;
 	}
 
-	if (uart_hal_is_mode_rs485_half_duplex(&data->hal)) {
+	if (uart_ll_is_mode_rs485_half_duplex(data->hal.dev)) {
 		cfg->flow_ctrl = UART_CFG_FLOW_CTRL_RS485;
 	}
 
@@ -278,15 +331,9 @@ static int uart_esp32_configure(const struct device *dev, const struct uart_conf
 {
 	const struct uart_esp32_config *config = dev->config;
 	struct uart_esp32_data *data = dev->data;
-	uart_sclk_t src_clk;
+	soc_module_clk_t src_clk;
 	uint32_t sclk_freq;
 	uint32_t inv_mask = 0;
-
-	if (!device_is_ready(config->clock_dev)) {
-		return -ENODEV;
-	}
-
-	clock_control_on(config->clock_dev, config->clock_subsys);
 
 	uart_hal_set_sclk(&data->hal, UART_SCLK_DEFAULT);
 	uart_hal_set_rxfifo_full_thr(&data->hal, UART_RX_FIFO_THRESH);
@@ -356,8 +403,7 @@ static int uart_esp32_configure(const struct device *dev, const struct uart_conf
 	}
 
 	uart_hal_get_sclk(&data->hal, &src_clk);
-	esp_clk_tree_src_get_freq_hz((soc_module_clk_t)src_clk,
-		ESP_CLK_TREE_SRC_FREQ_PRECISION_CACHED, &sclk_freq);
+	esp_clk_tree_src_get_freq_hz(src_clk, ESP_CLK_TREE_SRC_FREQ_PRECISION_CACHED, &sclk_freq);
 	uart_hal_set_baudrate(&data->hal, cfg->baudrate, sclk_freq);
 
 	uart_hal_set_rx_timeout(&data->hal, 0x16);
@@ -409,6 +455,10 @@ static void uart_esp32_irq_tx_enable(const struct device *dev)
 {
 	struct uart_esp32_data *data = dev->data;
 
+#ifdef CONFIG_PM
+	uart_esp32_pm_policy_state_lock_get(dev, TX_INT_STREAM);
+#endif
+
 	uart_hal_clr_intsts_mask(&data->hal, UART_INTR_TXFIFO_EMPTY);
 	uart_hal_ena_intr_mask(&data->hal, UART_INTR_TXFIFO_EMPTY);
 }
@@ -418,6 +468,10 @@ static void uart_esp32_irq_tx_disable(const struct device *dev)
 	struct uart_esp32_data *data = dev->data;
 
 	uart_hal_disable_intr_mask(&data->hal, UART_INTR_TXFIFO_EMPTY);
+
+#ifdef CONFIG_PM
+	uart_esp32_pm_policy_state_lock_put(dev, TX_INT_STREAM);
+#endif
 }
 
 static int uart_esp32_irq_tx_ready(const struct device *dev)
@@ -522,6 +576,9 @@ static void uart_esp32_irq_rx_enable(const struct device *dev)
 	uart_hal_ena_intr_mask(&data->hal, UART_INTR_RXFIFO_TOUT);
 }
 
+#endif
+#if CONFIG_UART_ASYNC_API || CONFIG_UART_INTERRUPT_DRIVEN || CONFIG_PM
+
 static void IRAM_ATTR uart_esp32_isr(void *arg)
 {
 	const struct device *dev = (const struct device *)arg;
@@ -532,6 +589,20 @@ static void IRAM_ATTR uart_esp32_isr(void *arg)
 		return;
 	}
 	uart_hal_clr_intsts_mask(&data->hal, uart_intr_status);
+
+#if CONFIG_PM
+	if (uart_intr_status & UART_INTR_TX_DONE) {
+		if (data->tx_ongoing & TX_POLL) {
+			uart_hal_disable_intr_mask(&data->hal, UART_INTR_TX_DONE);
+			uart_esp32_pm_policy_state_lock_put(dev, TX_POLL);
+		}
+	}
+	if (uart_intr_status & UART_INTR_TXFIFO_EMPTY) {
+		if (data->tx_ongoing & TX_INT_STREAM) {
+			uart_esp32_pm_policy_state_lock_put(dev, TX_INT_STREAM);
+		}
+	}
+#endif
 
 #if CONFIG_UART_INTERRUPT_DRIVEN
 	/* Verify if the callback has been registered */
@@ -592,7 +663,8 @@ static void IRAM_ATTR uart_esp32_dma_rx_done(const struct device *dma_dev, void 
 			   (uint32_t)data->async.rx_buf + data->async.rx_counter,
 			   data->async.rx_len - data->async.rx_counter);
 		dma_start(config->dma_dev, config->rx_dma_channel);
-		data->uhci_dev->pkt_thres.thrs = data->async.rx_len - data->async.rx_counter;
+		uhci_ll_rx_set_packet_threshold(data->uhci_dev,
+						data->async.rx_len - data->async.rx_counter);
 		irq_unlock(key);
 		return;
 	}
@@ -638,7 +710,7 @@ static void IRAM_ATTR uart_esp32_dma_rx_done(const struct device *dma_dev, void 
 		dma_reload(config->dma_dev, config->rx_dma_channel, 0, (uint32_t)data->async.rx_buf,
 			   data->async.rx_len);
 		dma_start(config->dma_dev, config->rx_dma_channel);
-		data->uhci_dev->pkt_thres.thrs = data->async.rx_len;
+		uhci_ll_rx_set_packet_threshold(data->uhci_dev, data->async.rx_len);
 	}
 
 	irq_unlock(key);
@@ -664,6 +736,11 @@ static void IRAM_ATTR uart_esp32_dma_tx_done(const struct device *dma_dev, void 
 	/* Reset TX Buffer */
 	data->async.tx_buf = NULL;
 	data->async.tx_len = 0U;
+
+#ifdef CONFIG_PM
+	uart_esp32_pm_policy_state_lock_put(uart_dev, TX_ASYNC);
+#endif
+
 	irq_unlock(key);
 }
 
@@ -702,6 +779,10 @@ static int uart_esp32_async_tx_abort(const struct device *dev)
 	if (data->async.cb) {
 		data->async.cb(dev, &evt, data->async.user_data);
 	}
+
+#ifdef CONFIG_PM
+	uart_esp32_pm_policy_state_lock_put(dev, TX_ASYNC);
+#endif
 
 unlock:
 	irq_unlock(key);
@@ -831,6 +912,10 @@ static int uart_esp32_async_tx(const struct device *dev, const uint8_t *buf, siz
 
 	uart_esp32_async_timer_start(&data->async.tx_timeout_work, timeout);
 
+#ifdef CONFIG_PM
+	uart_esp32_pm_policy_state_lock_get(dev, TX_ASYNC);
+#endif
+
 	err = dma_start(config->dma_dev, config->tx_dma_channel);
 	if (err) {
 		LOG_ERR("Error starting Tx DMA (%d)", err);
@@ -902,13 +987,15 @@ static int uart_esp32_async_rx_enable(const struct device *dev, uint8_t *buf, si
 		goto unlock;
 	}
 
-	data->uhci_dev->pkt_thres.thrs = len;
+	uhci_ll_rx_set_packet_threshold(data->uhci_dev, len);
 
 	/*
 	 * Configure UHCI EOF mode based on timeout setting.
 	 * For SYS_FOREVER_US, only use length-based EOF to avoid spurious
 	 * callbacks when UART goes idle before buffer is full.
 	 * For other timeouts, also enable idle-based EOF.
+	 * Note: Direct register access needed because uhci_ll_rx_set_eof_mode
+	 * only enables bits, it cannot clear them.
 	 */
 	if (timeout == SYS_FOREVER_US) {
 		data->uhci_dev->conf0.len_eof_en = 1;
@@ -1011,17 +1098,58 @@ unlock:
 
 #endif /* CONFIG_UART_ASYNC_API */
 
+static int uart_esp32_pm_action(const struct device *dev, enum pm_device_action action)
+{
+	const struct uart_esp32_config *config = dev->config;
+	int ret;
+
+	switch (action) {
+	case PM_DEVICE_ACTION_RESUME:
+		ret = pinctrl_apply_state(config->pcfg, PINCTRL_STATE_DEFAULT);
+
+		if (ret) {
+			LOG_ERR("Failed to configure UART pins at PM resume");
+			return ret;
+		}
+		break;
+
+	case PM_DEVICE_ACTION_SUSPEND:
+		ret = pinctrl_apply_state(config->pcfg, PINCTRL_STATE_SLEEP);
+
+		if (ret && (ret != -ENOENT)) {
+			LOG_ERR("Failed to configure UART pins at PM suspend (%d)", ret);
+			return ret;
+		}
+		break;
+
+	case PM_DEVICE_ACTION_TURN_ON:
+	case PM_DEVICE_ACTION_TURN_OFF:
+		break;
+
+	default:
+		return -ENOTSUP;
+	}
+
+	return 0;
+}
+
 static int uart_esp32_init(const struct device *dev)
 {
 	int ret;
 	struct uart_esp32_data *data = dev->data;
 	const struct uart_esp32_config *config = dev->config;
 
-	ret = pinctrl_apply_state(config->pcfg, PINCTRL_STATE_DEFAULT);
+	ret = pm_device_driver_init(dev, uart_esp32_pm_action);
 	if (ret < 0) {
-		LOG_ERR("Error configuring UART pins (%d)", ret);
 		return ret;
 	}
+
+	if (!device_is_ready(config->clock_dev)) {
+		return -ENODEV;
+	}
+
+	clock_control_on(config->clock_dev, config->clock_subsys);
+	uart_ll_sclk_enable(data->hal.dev);
 
 	ret = uart_esp32_configure(dev, &data->uart_config);
 	if (ret < 0) {
@@ -1029,7 +1157,7 @@ static int uart_esp32_init(const struct device *dev)
 		return ret;
 	}
 
-#if CONFIG_UART_INTERRUPT_DRIVEN || CONFIG_UART_ASYNC_API
+#if CONFIG_UART_INTERRUPT_DRIVEN || CONFIG_UART_ASYNC_API || CONFIG_PM
 	ret = esp_intr_alloc(config->irq_source,
 			     ESP_PRIO_TO_FLAGS(config->irq_priority) |
 				     ESP_INT_FLAGS_CHECK(config->irq_flags) | ESP_INTR_FLAG_IRAM,
@@ -1048,7 +1176,7 @@ static int uart_esp32_init(const struct device *dev)
 
 		clock_control_on(config->clock_dev, (clock_control_subsys_t)ESP32_UHCI0_MODULE);
 		uhci_ll_init(data->uhci_dev);
-		uhci_ll_set_eof_mode(data->uhci_dev, UHCI_RX_IDLE_EOF | UHCI_RX_LEN_EOF);
+		uhci_ll_rx_set_eof_mode(data->uhci_dev, UHCI_RX_IDLE_EOF | UHCI_RX_LEN_EOF);
 
 		/* Configure SLIP encoding/decoding */
 		data->uhci_dev->escape_conf.tx_c0_esc_en = config->uhci_slip_tx ? 1 : 0;
@@ -1130,24 +1258,27 @@ static DEVICE_API(uart, uart_esp32_api) = {
 		ESP_UART_DMA_INIT(idx)};                                                           \
                                                                                                    \
 	static struct uart_esp32_data uart_esp32_data_##idx = {                                    \
-		.uart_config = {.baudrate = DT_INST_PROP(idx, current_speed),                      \
-				.parity = DT_INST_ENUM_IDX(idx, parity),                           \
-				.stop_bits = DT_INST_ENUM_IDX(idx, stop_bits),                     \
-				.data_bits = DT_INST_ENUM_IDX(idx, data_bits),                     \
-				.flow_ctrl = MAX(COND_CODE_1(DT_INST_PROP(idx, hw_rs485_hd_mode),  \
+		.uart_config = {                                                                   \
+			.baudrate = DT_INST_PROP(idx, current_speed),                              \
+			.parity = DT_INST_ENUM_IDX(idx, parity),                                   \
+			.stop_bits = DT_INST_ENUM_IDX(idx, stop_bits),                             \
+			.data_bits = DT_INST_ENUM_IDX(idx, data_bits),                             \
+			.flow_ctrl = MAX(COND_CODE_1(DT_INST_PROP(idx, hw_rs485_hd_mode),          \
 							     (UART_CFG_FLOW_CTRL_RS485),           \
 							     (UART_CFG_FLOW_CTRL_NONE)),           \
-						 COND_CODE_1(DT_INST_PROP(idx, hw_flow_control),   \
+				 COND_CODE_1(DT_INST_PROP(idx, hw_flow_control),   \
 							     (UART_CFG_FLOW_CTRL_RTS_CTS),         \
 							     (UART_CFG_FLOW_CTRL_NONE)))},         \
-		.hal =                                                                             \
-			{                                                                          \
-				.dev = (uart_dev_t *)DT_INST_REG_ADDR(idx),                        \
-			},                                                                         \
-		ESP_UART_UHCI_INIT(idx)};                                                          \
+				.hal =                                                             \
+					{                                                          \
+						.dev = (uart_dev_t *)DT_INST_REG_ADDR(idx),        \
+					},                                                         \
+				ESP_UART_UHCI_INIT(idx)};                                          \
                                                                                                    \
-	DEVICE_DT_INST_DEFINE(idx, uart_esp32_init, NULL, &uart_esp32_data_##idx,                  \
-			      &uart_esp32_cfg_port_##idx, PRE_KERNEL_1,                            \
+	PM_DEVICE_DT_INST_DEFINE(idx, uart_esp32_pm_action);                                       \
+                                                                                                   \
+	DEVICE_DT_INST_DEFINE(idx, uart_esp32_init, PM_DEVICE_DT_INST_GET(idx),                    \
+			      &uart_esp32_data_##idx, &uart_esp32_cfg_port_##idx, PRE_KERNEL_1,    \
 			      CONFIG_SERIAL_INIT_PRIORITY, &uart_esp32_api);
 
 DT_INST_FOREACH_STATUS_OKAY(ESP32_UART_INIT);

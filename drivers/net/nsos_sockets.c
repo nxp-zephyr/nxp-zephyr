@@ -927,7 +927,6 @@ return_ret:
 static ssize_t nsos_recvfrom(void *obj, void *buf, size_t len, int flags,
 			     struct net_sockaddr *addr, net_socklen_t *addrlen)
 {
-	struct net_if *iface = NET_IF_GET(nsos_socket, 0);
 	struct nsos_socket *sock = obj;
 	struct nsos_mid_sockaddr_storage addr_storage_mid;
 	struct nsos_mid_sockaddr *addr_mid = (struct nsos_mid_sockaddr *)&addr_storage_mid;
@@ -961,7 +960,6 @@ return_ret:
 		return -1;
 	}
 
-	conn_mgr_if_used(iface);
 	return ret;
 }
 
@@ -1651,7 +1649,7 @@ static int nsos_socket_offload_init(const struct device *arg)
 
 static void nsos_iface_api_init(struct net_if *iface)
 {
-	iface->if_dev->socket_offload = nsos_socket_create;
+	net_if_socket_offload_set(iface, nsos_socket_create);
 
 	socket_offload_dns_register(&nsos_dns_ops);
 }

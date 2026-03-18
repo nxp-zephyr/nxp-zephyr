@@ -489,6 +489,8 @@ static inline const char *video_get_ctrl_name(uint32_t id)
 		return "Brightness, Automatic";
 	case VIDEO_CID_BAND_STOP_FILTER:
 		return "Band-Stop Filter";
+	case VIDEO_CID_ROTATE:
+		return "Rotate";
 	case VIDEO_CID_ALPHA_COMPONENT:
 		return "Alpha Component";
 
@@ -545,6 +547,8 @@ static inline const char *video_get_ctrl_name(uint32_t id)
 		return "Test Pattern";
 	case VIDEO_CID_LINK_FREQ:
 		return "Link Frequency";
+	case VIDEO_CID_DIGITAL_GAIN:
+		return "Digital Gain";
 	default:
 		return NULL;
 	}

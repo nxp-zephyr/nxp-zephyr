@@ -28,6 +28,7 @@
 	defined(CONFIG_BOARD_NUCLEO_L552ZE_Q) || \
 	defined(CONFIG_BOARD_STM32L562E_DK) || \
 	defined(CONFIG_BOARD_STM32H573I_DK) || \
+	defined(CONFIG_BOARD_STM32H5F5J_DK) || \
 	defined(CONFIG_BOARD_STM32U083C_DK) || \
 	defined(CONFIG_BOARD_B_U585I_IOT02A) || \
 	defined(CONFIG_BOARD_NUCLEO_U083RC) || \
@@ -76,7 +77,6 @@
 /* clang-format off */
 #elif defined(CONFIG_BOARD_ESP32_DEVKITC) || \
 	defined(CONFIG_BOARD_ESP_WROVER_KIT) || \
-	defined(CONFIG_BOARD_ESP32S2_SAOLA) || \
 	defined(CONFIG_BOARD_ESP32S2_DEVKITC) || \
 	defined(CONFIG_BOARD_GD32A503V_EVAL) || \
 	defined(CONFIG_BOARD_GD32E103V_EVAL) || \
@@ -88,7 +88,8 @@
 	defined(CONFIG_BOARD_MIMXRT1180_EVK) || \
 	defined(CONFIG_BOARD_FRDM_MCXC444)   || \
 	defined(CONFIG_BOARD_PHYBOARD_ATLAS) || \
-	defined(CONFIG_BOARD_SAM_E54_XPRO)
+	defined(CONFIG_BOARD_SAM_E54_XPRO) || \
+	defined(CONFIG_BOARD_PIC32CX_SG41_CULT)
 /* clang-format on */
 
 #define DAC_DEVICE_NODE		DT_NODELABEL(dac)

@@ -393,21 +393,7 @@ static void unicast_client_ep_iso_disconnected(struct bt_bap_ep *ep, uint8_t rea
 	 * the ISO has finalized the disconnection
 	 */
 	if (ep->state == BT_BAP_EP_STATE_IDLE) {
-
 		unicast_client_ep_idle_state(ep);
-
-		if (stream->conn != NULL) {
-			struct bt_conn_info conn_info;
-			int err;
-
-			err = bt_conn_get_info(stream->conn, &conn_info);
-			if (err != 0 || conn_info.state == BT_CONN_STATE_DISCONNECTED) {
-				/* Retrigger the reset of the EP if the ACL is disconnected before
-				 * the ISO is disconnected
-				 */
-				unicast_client_reset(ep, reason);
-			}
-		}
 	}
 }
 
@@ -1195,16 +1181,17 @@ static void unicast_client_ep_streaming_state(struct bt_bap_ep *ep, struct net_b
 
 	LOG_DBG("dir %s cig 0x%02x cis 0x%02x", bt_audio_dir_str(ep->dir), ep->cig_id, ep->cis_id);
 
-	/* Setup the ISO data path when the stream is started. We could do it earlier when the CIS
-	 * is connected, but then we would just receive audio data that we would then just discard
-	 */
-	bt_bap_setup_iso_data_path(stream);
-
-	/* Notify upper layer
-	 *
-	 * If the state did not change then only the metadata was changed
+	/* If there is a state change (i.e. going from non-streaming to streaming) we setup the data
+	 * path and notify the upper layers with the started callback, and if there is no state
+	 * change then that indicates that it is just a metadata update
 	 */
 	if (state_changed) {
+		/* Setup the ISO data path when the stream is started. We could do it earlier when
+		 * the CIS is connected, but then we would just receive audio data that we would
+		 * then just discard
+		 */
+		bt_bap_setup_iso_data_path(stream);
+
 		if (stream->ops != NULL && stream->ops->started != NULL) {
 			stream->ops->started(stream);
 		} else {
@@ -2318,10 +2305,7 @@ static void unicast_client_reset(struct bt_bap_ep *ep, uint8_t reason)
 	/* Pretend we received an idle state notification from the server to trigger all cleanup */
 	unicast_client_ep_set_local_idle_state(ep);
 
-	if (ep->iso != NULL && ep->iso->chan.state == BT_ISO_STATE_DISCONNECTING) {
-		/* Wait for ISO disconnected event */
-		return;
-	}
+	__ASSERT(ep->iso == NULL, "CIS for ep %p was not disconnected before ACL", ep);
 
 	(void)k_work_cancel_delayable(&client_ep->ase_read_work);
 	(void)memset(ep, 0, sizeof(*ep));

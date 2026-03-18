@@ -591,6 +591,7 @@ class PropertySpec:
         self.binding: Binding = binding
         self.name: str = name
         self._raw: dict[str, Any] = self.binding.raw["properties"][name]
+        self._check_special_properties()
 
     def __repr__(self) -> str:
         return f"<PropertySpec {self.name} type '{self.type}'>"
@@ -669,6 +670,20 @@ class PropertySpec:
     def specifier_space(self) -> Optional[str]:
         "See the class docstring"
         return self._raw.get("specifier-space")
+
+    def _check_special_properties(self):
+        # Add checks for properties which have special meaning
+        # according to the specification.
+        def invalid_cells_default(prop, default):
+            _err(f"invalid default value '{default}' specified for property '{prop}' "
+                 f"in binding {self.binding.path}; this property's default behavior is "
+                 "defined in DT Specification §2.3.5 and a default in a binding is invalid")
+
+        if self.name == "#address-cells" and self.default is not None:
+            invalid_cells_default("#address-cells", self.default)
+
+        if self.name == "#size-cells" and self.default is not None:
+            invalid_cells_default("#size-cells", self.default)
 
 PropertyValType = Union[int, str,
                         list[int], list[str],
@@ -2052,15 +2067,19 @@ class Node:
         # unspecified.
 
         if not specifier_space:
-            if prop.name.endswith("gpios"):
-                # There's some slight special-casing for *-gpios properties in that
-                # e.g. foo-gpios still maps to #gpio-cells rather than
-                # #foo-gpio-cells
-                specifier_space = "gpio"
-            else:
-                # Strip -s. We've already checked that property names end in -s
-                # if there is no specifier space in _check_prop_by_type().
-                specifier_space = prop.name[:-1]
+            specifier_space_groups = {"gpio", "io-channel"}
+            for group in specifier_space_groups:
+                if prop.name.endswith(group + 's'):
+                    # There's some slight special-casing for some properties in that
+                    # e.g. foo-gpios and bar-io-channels still map to #gpio-cells and
+                    # #io-channels rather than #foo-gpio-cells and bar-io-channels
+                    # respectively.
+                    specifier_space = group
+
+        if not specifier_space:
+            # Strip -s. We've already checked that property names end in -s
+            # if there is no specifier space in _check_prop_by_type().
+            specifier_space = prop.name[:-1]
 
         res: list[Optional[ControllerAndData]] = []
 

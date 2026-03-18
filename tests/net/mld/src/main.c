@@ -20,6 +20,7 @@ LOG_MODULE_REGISTER(net_test, CONFIG_NET_IPV6_LOG_LEVEL);
 
 #include <zephyr/net/mld.h>
 #include <zephyr/net/net_if.h>
+#include <zephyr/net/net_log.h>
 #include <zephyr/net/net_pkt.h>
 #include <zephyr/net/net_ip.h>
 #include <zephyr/net/net_core.h>
@@ -185,7 +186,7 @@ static struct dummy_api net_test_if_api = {
 
 static void init_null_iface(struct net_if *iface)
 {
-	struct net_test_mld *context = iface->if_dev->dev->data;
+	struct net_test_mld *context = net_if_get_device(iface)->data;
 
 	memset(&context->mac_addr, 0, sizeof(context->mac_addr));
 
@@ -518,11 +519,11 @@ static void leave_mldv2_capable_routers_group(void)
 }
 
 /* We are not really interested to parse the query at this point */
-static int handle_mld_query(struct net_icmp_ctx *ctx,
-			    struct net_pkt *pkt,
-			    struct net_icmp_ip_hdr *hdr,
-			    struct net_icmp_hdr *icmp_hdr,
-			    void *user_data)
+static enum net_verdict handle_mld_query(struct net_icmp_ctx *ctx,
+					 struct net_pkt *pkt,
+					 struct net_icmp_ip_hdr *hdr,
+					 struct net_icmp_hdr *icmp_hdr,
+					 void *user_data)
 {
 	ARG_UNUSED(ctx);
 	ARG_UNUSED(pkt);

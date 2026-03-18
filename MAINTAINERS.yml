@@ -485,7 +485,6 @@ Bluetooth Audio:
     - pin-zephyr
     - niym-ot
     - jthm-ot
-    - babrsn
   files:
     - subsys/bluetooth/audio/
     - include/zephyr/bluetooth/audio/
@@ -777,6 +776,7 @@ Bouffalolab Platforms:
     - VynDragon
   collaborators:
     - josuah
+    - will-tm
   files:
     - boards/aithinker/ai_*/
     - boards/bflb/
@@ -1332,6 +1332,7 @@ Documentation Infrastructure:
     - lgirdwood
     - kv2019i
     - TomasBarakNXP
+    - Peterson-Brett
   files:
     - drivers/audio/
     - include/zephyr/audio/
@@ -1759,6 +1760,7 @@ Documentation Infrastructure:
     - include/zephyr/drivers/firmware/
     - dts/bindings/firmware/
     - doc/hardware/arch/arm-scmi.rst
+    - samples/drivers/firmware/
   labels:
     - "area: Firmware"
 
@@ -1921,6 +1923,7 @@ Documentation Infrastructure:
   collaborators:
     - TomasBarakNXP
     - anangl
+    - Peterson-Brett
   files:
     - doc/hardware/peripherals/audio/i2s.rst
     - drivers/i2s/
@@ -2172,7 +2175,6 @@ Documentation Infrastructure:
     - dts/bindings/opamp/
     - drivers/opamp/
     - include/zephyr/drivers/opamp.h
-    - include/zephyr/dt-bindings/opamp/
     - samples/drivers/opamp/
     - tests/drivers/build_all/opamp/
     - tests/drivers/opamp/
@@ -2682,7 +2684,7 @@ Documentation Infrastructure:
     - dts/bindings/wifi/nordic,nrf7001-qspi.yaml
     - dts/bindings/wifi/nordic,nrf7001-spi.yaml
     - dts/bindings/wifi/nordic,nrf7120-wifi.yaml
-    - boards/shields/nrf7002ek/
+    - boards/shields/nrf7002e*/
   labels:
     - "area: Wi-Fi"
 
@@ -2696,6 +2698,23 @@ Documentation Infrastructure:
     Inventek es-WiFi
   labels:
     - "area: Wi-Fi"
+
+"Drivers: Wuc":
+  status: maintained
+  maintainers:
+    - Albort12138
+  files:
+    - drivers/wuc/
+    - dts/bindings/wuc/
+    - include/zephyr/dt-bindings/wuc/
+    - include/zephyr/drivers/wuc.h
+    - include/zephyr/devicetree/wuc.h
+    - tests/drivers/wuc/
+    - doc/hardware/peripherals/wuc.rst
+  labels:
+    - "area: wuc"
+  tests:
+    - drivers.wuc.api
 
 "Drivers: Wurth Elektronik Sensors":
   status: maintained
@@ -2986,6 +3005,7 @@ Infineon Platforms:
     - talih0
     - billwatersiii
     - jsbatch
+    - Peterson-Brett
   files:
     - boards/cypress/
     - boards/infineon/
@@ -3342,6 +3362,7 @@ LoRa and LoRaWAN:
   collaborators:
     - martinjaeger
     - mniestroj
+    - carlocaione
   files:
     - drivers/lora/
     - include/zephyr/drivers/lora.h
@@ -3580,12 +3601,12 @@ NVMEM:
 NXP Platform Drivers:
   status: maintained
   maintainers:
+    - zejiang0jason
     - mmahadevan108
   collaborators:
     - manuargue
     - dbaluta
     - Holt-Sun
-    - zejiang0jason
     - butok
   files-regex:
     - ^drivers/.*nxp.*
@@ -3616,7 +3637,6 @@ NXP Platform Drivers:
   file-groups:
     - name: NXP USB
       collaborators:
-        - mmahadevan108
         - MarkWangChinese
       files:
         - drivers/usb/
@@ -3627,7 +3647,7 @@ NXP Platform Drivers:
 NXP Platform Wireless:
   status: maintained
   maintainers:
-    - mmahadevan108
+    - axelnxp
   files:
     - boards/nxp/*mcxw*/
     - boards/nxp/*rw*/
@@ -3645,7 +3665,6 @@ NXP Platform Wireless:
   file-groups:
     - name: NXP BLE
       collaborators:
-        - axelnxp
         - yeaissa
       files:
         - drivers/bluetooth/
@@ -3666,7 +3685,6 @@ NXP Platform Wireless:
         - soc/
     - name: MCXW platform
       collaborators:
-        - axelnxp
         - yeaissa
       files:
         - boards/nxp/*mcxw*/
@@ -3674,7 +3692,6 @@ NXP Platform Wireless:
     - name: RW6xx platform
       collaborators:
         - MaochenWang1
-        - axelnxp
         - yeaissa
       files:
         - soc/nxp/rw/
@@ -3685,10 +3702,10 @@ NXP Platform Wireless:
 NXP Platforms (MCU):
   status: maintained
   maintainers:
+    - iuliana-prodan
     - mmahadevan108
   collaborators:
     - butok
-    - DerekSnell
   files:
     - boards/nxp/mimxrt*/
     - boards/nxp/frdm*/
@@ -3759,7 +3776,6 @@ NXP Platforms (MCU):
         - soc/nxp/imxrt/imxrt[567]xx/Kconfig*
     - name: NXP MCU UX
       collaborators:
-        - DerekSnell
         - jacob-wienecke-nxp
       files-regex:
         - \.rst$
@@ -3919,7 +3935,6 @@ Networking:
     - jukkar
   collaborators:
     - pdgendt
-    - ssharks
   files:
     - scripts/net/
     - drivers/net/
@@ -4478,6 +4493,8 @@ Power management:
     - teburd
     - tmleman
     - JordanYates
+    - ZhaoxiangJin
+    - yongxu-wang15
   files:
     - include/zephyr/pm/
     - samples/subsys/pm/
@@ -4638,7 +4655,23 @@ Realtek Ameba Platforms:
     - dts/arm/realtek/ameba*/
     - dts/bindings/*/*ameba*
   labels:
-    - "platform: Ameba"
+    - "platform: Realtek Ameba"
+
+Realtek Bee Platforms:
+  status: maintained
+  maintainers:
+    - ZhiyuanTang17
+  files:
+    - boards/realtek/rtl87x2g*/
+    - boards/realtek/rtl8752h*/
+    - drivers/*/*bee*
+    - dts/arm/realtek/bee/
+    - dts/bindings/*/*bee*
+    - soc/realtek/bee/
+    - tests/boards/realtek/
+    - modules/hal_realtek/bee/
+  labels:
+    - "platform: Realtek Bee"
 
 Realtek EC Platforms:
   status: maintained
@@ -4657,6 +4690,19 @@ Realtek EC Platforms:
     - soc/realtek/ec/
   labels:
     - "platform: Realtek EC"
+
+Realtek Fingerprint Platforms:
+  status: maintained
+  maintainers:
+    - RtkFP
+  files:
+    - boards/realtek/rts5817_maa_evb/
+    - drivers/*/*rts5817*
+    - dts/bindings/*/*rts5817*
+    - dts/arm/realtek/fingerprint/
+    - soc/realtek/fingerprint/
+  labels:
+    - "platform: Realtek Fingerprint"
 
 Release:
   status: maintained
@@ -5616,7 +5662,9 @@ VFS:
     - filesystem
 
 WCH Platforms:
-  status: odd fixes
+  status: maintained
+  maintainers:
+    - BOJIT
   collaborators:
     - nzmichaelh
     - kholia
@@ -5811,6 +5859,16 @@ West:
   labels:
     - "area: CMSIS_6"
 
+"West project: dhara":
+  status: maintained
+  maintainers:
+    - tpambor
+  files:
+    - drivers/disk/ftl_dhara.c
+    - modules/dhara/
+  labels:
+    - "area: Disk Access"
+
 "West project: edtt":
   status: maintained
   maintainers:
@@ -5883,6 +5941,7 @@ West:
     - VynDragon
   collaborators:
     - josuah
+    - will-tm
   files:
     - modules/hal_bouffalolab/
   labels:
@@ -5949,6 +6008,7 @@ West:
     - mcatee-infineon
     - billwatersiii
     - jsbatch
+    - Peterson-Brett
   files:
     - modules/Kconfig.infineon
     - modules/hal_infineon/
@@ -6018,8 +6078,8 @@ West:
 "West project: hal_nxp":
   status: maintained
   maintainers:
-    - mmahadevan108
     - ZhaoxiangJin
+    - mmahadevan108
   collaborators:
     - manuargue
     - PetervdPerk-NXP
@@ -6179,6 +6239,7 @@ West:
   maintainers:
     - nzmichaelh
     - kholia
+    - BOJIT
   collaborators:
     - VynDragon
   files:
@@ -6317,11 +6378,21 @@ West:
     - tests/crypto/secp256r1/
     - tests/benchmarks/mbedtls/
   labels:
-    - "area: mbedTLS / PSA Crypto"
+    - "area: Mbed TLS"
   tests:
     - benchmark.crypto.mbedtls
     - crypto.mbedtls
     - psa.secure_storage
+
+"West project: mbedtls-framework":
+  status: maintained
+  maintainers:
+    - ceolin
+    - valeriosetti
+    - tomi-font
+  files: []
+  labels:
+    - "area: Mbed TLS"
 
 "West project: mcuboot":
   status: maintained
@@ -6473,6 +6544,16 @@ West:
   files: []
   labels:
     - "area: TF-M"
+
+"West project: tf-psa-crypto":
+  status: maintained
+  maintainers:
+    - ceolin
+    - valeriosetti
+    - tomi-font
+  files: []
+  labels:
+    - "area: TF-PSA-Crypto"
 
 "West project: tflite-micro":
   status: maintained

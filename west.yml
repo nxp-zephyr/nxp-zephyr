@@ -37,7 +37,7 @@ manifest:
       remote: babblesim
       repo-path: base
       path: tools/bsim/components
-      revision: f65b51253f401591b0b734905ddb52b8d554a7d1
+      revision: 1cce925c72805cfdbb6341ca8c0755c7d42699d3
       groups:
         - babblesim
     - name: babblesim_ext_2G4_channel_NtNcable
@@ -112,7 +112,7 @@ manifest:
         - babblesim
     - name: bsim
       repo-path: babblesim-manifest
-      revision: dcf997c28b5cc2dc21ae876b64b31ff72b786210
+      revision: 7e10d556b5dd04360756cdf1f4b80d4f5bcac6cf
       path: tools/bsim
       groups:
         - babblesim
@@ -133,6 +133,9 @@ manifest:
       path: modules/hal/cmsis_6
       groups:
         - hal
+    - name: dhara
+      revision: 6f163ca05e174b168b4d148160b50eeaeeb561fc
+      path: modules/lib/dhara
     - name: edtt
       revision: c282625e694f0b53ea53e13231ea6d2f49411768
       path: tools/edtt
@@ -144,7 +147,7 @@ manifest:
       groups:
         - fs
     - name: hal_adi
-      revision: f24186100783b7633594e7114b4b1d98e55a080d
+      revision: fc36ee1f5118caa62d9c151cf2e47c193d18d926
       path: modules/hal/adi
       groups:
         - hal
@@ -154,12 +157,12 @@ manifest:
       groups:
         - hal
     - name: hal_ambiq
-      revision: 5efc0228528a8adce5eae0d226fac85d2551eb3b
+      revision: 21565be7baa02f03d27a734bf9939c0dcb3cfec9
       path: modules/hal/ambiq
       groups:
         - hal
     - name: hal_atmel
-      revision: 065e57c5013051c8b7f2256271349c6942bd9344
+      revision: 8cd575049f04131e333558072484bfc6334c19c4
       path: modules/hal/atmel
       groups:
         - hal
@@ -169,7 +172,7 @@ manifest:
       groups:
         - hal
     - name: hal_espressif
-      revision: 928f0184a9fd68e71c6fbd7e58b28dbbccd632aa
+      revision: d73843b864463def35d99b29e61001874151d8a6
       path: modules/hal/espressif
       west-commands: west/west-commands.yml
       groups:
@@ -185,7 +188,7 @@ manifest:
       groups:
         - hal
     - name: hal_infineon
-      revision: 839de193c8c555a75ce44c3d6085fae9227caa85
+      revision: 3ae25facf70c296145f6e12aa10b4810d49c2b33
       path: modules/hal/infineon
       groups:
         - hal
@@ -200,7 +203,7 @@ manifest:
       groups:
         - hal
     - name: hal_nordic
-      revision: 5c1df3fe9bc144e558b3506cef6cf33652bb2539
+      revision: 70c1b32dd68753b0604beab377392ed5ebc19176
       path: modules/hal/nordic
       groups:
         - hal
@@ -210,7 +213,7 @@ manifest:
       groups:
         - hal
     - name: hal_nxp
-      revision: 86b737e00bdfd133ca2719bf4b04e61e5176a6c0
+      revision: 22a92524af8ff98fcfbbbdb345509b76729344b1
       path: modules/hal/nxp
       groups:
         - hal
@@ -226,12 +229,12 @@ manifest:
         - hal
     - name: hal_realtek
       path: modules/hal/realtek
-      revision: f0192aa919dd5d16e68cf3a35fc73a1e51356215
+      revision: ba2729361aaeb830434a069dcb12f5a8d4a9f22e
       groups:
         - hal
     - name: hal_renesas
       path: modules/hal/renesas
-      revision: ca896d22f176a5cea60d826d7d4ad75a14a7e401
+      revision: c92be1e7442b01e02d0f56a3b0ee090d8d068467
       groups:
         - hal
     - name: hal_rpi_pico
@@ -245,7 +248,7 @@ manifest:
       groups:
         - hal
     - name: hal_silabs
-      revision: d375743bceb892a12b8ce6a22d23438353d500cb
+      revision: 12fa7580a4a5c216c33916e27e0034265154afee
       path: modules/hal/silabs
       groups:
         - hal
@@ -255,7 +258,7 @@ manifest:
       groups:
         - hal
     - name: hal_stm32
-      revision: 57803da28e985e1cbc32a7ea993578f7267d0935
+      revision: 21d2c68bc0d38cb9f4d9183b97adb82e47fbd25e
       path: modules/hal/stm32
       groups:
         - hal
@@ -270,7 +273,7 @@ manifest:
       groups:
         - hal
     - name: hal_ti
-      revision: b141deb61a34e257afa16381c5d25e2f3d56d5a5
+      revision: b0347dba143798dafa3b57babfb754228398e5c5
       path: modules/hal/ti
       groups:
         - hal
@@ -291,7 +294,7 @@ manifest:
         - hal
     - name: hostap
       path: modules/lib/hostap
-      revision: 8fa6fe8b1df12a727e86048f587161b241590ca0
+      revision: 675f62d32902201d0da15c125dd94eb7667518b0
     - name: liblc3
       revision: 48bbd3eacd36e99a57317a0a4867002e0b09e183
       path: modules/lib/liblc3
@@ -318,7 +321,7 @@ manifest:
       revision: fb00b383072518c918e2258b0916c996f2d4eebe
       path: modules/lib/loramac-node
     - name: lvgl
-      revision: 94ae6c0535aa6ac4b08a75f4ae2c3a08cacb5c41
+      revision: 85aa60d18b3d5e5588d7b247abf90198f07c8a63
       path: modules/lib/gui/lvgl
     - name: mbedtls
       revision: c5b06d89c9c498d8fc8659ce31f7e53137b6270f
@@ -326,7 +329,7 @@ manifest:
       groups:
         - crypto
     - name: mcuboot
-      revision: d9c2ba153128efd7c16db9f36dea4ee69f63c7f5
+      revision: 9eac8cb5f4fedb3500986c5877277ef80606c4b0
       path: bootloader/mcuboot
       groups:
         - bootloader
@@ -344,7 +347,7 @@ manifest:
       groups:
         - tools
     - name: nrf_hw_models
-      revision: cf40f6dc7fc441ee6848ea2e177c4522588c1b8c
+      revision: 2b09581c7654f4dfd38681270350c9ae6b0438a2
       path: modules/bsim_hw_models/nrf_hw_models
     - name: nrf_wifi
       revision: cebea8e27ceb91a7d4580d17db65f93669befe72
@@ -353,7 +356,7 @@ manifest:
       revision: 5efe7974f9546582e99f5a842a816ea4b65f5227
       path: modules/lib/open-amp
     - name: openthread
-      revision: 9a40380a47b2493cfcd172b362704581e9aef47f
+      revision: e4d97681c53ec1cc34af1404ad2960adda4ba691
       path: modules/lib/openthread
     - name: percepio
       path: modules/debug/percepio
@@ -381,7 +384,7 @@ manifest:
         - testing
         - tee
     - name: trusted-firmware-a
-      revision: 0a29cac8fe0f7bdb835b469d9ea11b8e17377a92
+      revision: 44bcc378b6ec4af8693d008f43983e488f1f5740
       path: modules/tee/tf-a/trusted-firmware-a
       groups:
         - tee
@@ -391,7 +394,7 @@ manifest:
       groups:
         - tee
     - name: uoscore-uedhoc
-      revision: e47f6465a96d12a54b875e5f6e5b2a203fb0d61d
+      revision: dc0ab6345450668de3f9597320a48c5a2d409bb6
       path: modules/lib/uoscore-uedhoc
     - name: zcbor
       revision: 9164bd18dcd88ff9d9ef98279501fc1093571017

@@ -110,6 +110,10 @@ family:
     - name: stm32h562xx
     - name: stm32h563xx
     - name: stm32h573xx
+    - name: stm32h5e4xx
+    - name: stm32h5e5xx
+    - name: stm32h5f4xx
+    - name: stm32h5f5xx
   - name: stm32h7rsx
     socs:
     - name: stm32h7r3xx
@@ -201,6 +205,9 @@ family:
     - name: stm32mp135fxx
   - name: stm32mp2x
     socs:
+    - name: stm32mp215fxx
+      cpuclusters:
+      - name: m33
     - name: stm32mp257fxx
       cpuclusters:
       - name: m33

@@ -11,6 +11,7 @@ LOG_MODULE_REGISTER(net_eth_bridge, CONFIG_NET_ETHERNET_BRIDGE_LOG_LEVEL);
 
 #include <zephyr/net/net_core.h>
 #include <zephyr/net/net_l2.h>
+#include <zephyr/net/net_log.h>
 #include <zephyr/net/net_if.h>
 #include <zephyr/net/virtual.h>
 #include <zephyr/net/ethernet_bridge.h>
@@ -246,6 +247,9 @@ int eth_bridge_iface_remove(struct net_if *br, struct net_if *iface)
 static void random_linkaddr(uint8_t *linkaddr, size_t len)
 {
 	sys_rand_get(linkaddr, len);
+
+	linkaddr[0] |= 0x02;  /* force LAA bit */
+	linkaddr[0] &= ~0x01; /* clear multicast bit */
 }
 
 static void bridge_iface_init(struct net_if *iface)

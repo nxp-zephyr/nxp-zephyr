@@ -42,6 +42,8 @@ Build System
   the application source dir per-default. Samples requiring application source dir to be added to
   ``SNIPPET_ROOT`` must instead add the application source dir using ``snippet_root = <dir>`` entry
   in :file:`zephyr/module.yml` or manually append the folder to the CMake variable ``SNIPPET_ROOT``.
+* Shell autocompletions (``west completion``) should be regenerated as board target auto-complete now
+  supports board revisions.
 
 Kernel
 ******
@@ -67,6 +69,9 @@ Boards
 
   * The ``--file-type`` option can now be used without ``--file`` to select between build artifacts
     (hex, elf, bin).
+
+* native_sim: host FUSE access: Defaults to using libfusev3 now instead of v2. But can be chosen
+  with :kconfig:option:`CONFIG_FUSE_LIBRARY_VERSION` (:github:`104965`).
 
 * m5stack_fire: Removed unused pinctrl entries for UART2, and updated the UART1
   pin mapping from GPIO32/GPIO33 to GPIO16/GPIO17 to match the documented Grove
@@ -153,16 +158,22 @@ Boards
 
 * ITE ``it515xx_evb`` is renamed to ``it51xxx_evb``.
 
-* Boards that have NVM devices must now correctly have their addresses set or inheritied when they
-  do not start at address 0x0. In previous zephyr releases, a ``partitions`` entry in DTS was
-  wrongly interpreted as starting in the flash device's address range even though the DTS file
-  does not describe this and instead describes flash partitions starting at absolute addresses
-  e.g. 0x0. If you build and get the deprecated Kconfig
-  :kconfig:option:`CONFIG_FLASH_CODE_PARTITION_ADDRESS_INVALID` being set then this means your
-  board, SoC or DTS files are wrong and need updating, a ``ranges <>;`` property should be used
-  by the flash nodes to specify the base address and size for child nodes, and
-  ``fixed-partitions``/``fixed-subpartitions`` nodes must have a ``ranges;`` property to pass the
-  parent's ranges on to child nodes.
+* Boards that use :kconfig:option:`CONFIG_USE_DT_CODE_PARTITION` or have a
+  ``zephyr,code-partition`` chosen node set should now use the new
+  :dtcompatible:`zephyr,mapped-partition` compatible. This binding uses the devicetree unit address
+  to be able to get the memory-mapped address of the partition rather than having to manually go up
+  child nodes until a node with a specific name is found in order to calculate it, and also
+  disallows usage of :kconfig:option:`CONFIG_FLASH_LOAD_OFFSET` and
+  :kconfig:option:`CONFIG_FLASH_LOAD_SIZE` when a :dtcompatible:`zephyr,mapped-partition` is used,
+  as the linker file can now work out the NVM offset and size without needing Kconfig to perform
+  math operations as an intermediate step. In addition, :dtcompatible:`fixed-subpartitions` are no
+  longer needed on memory-mapped devices when switching to :dtcompatible:`zephyr,mapped-partition`
+  as these can natively be nested inside of each other and will have the correct addresses and
+  offsets (when used with the devicetree ``ranges`` property).
+  :kconfig:option:`CONFIG_FLASH_CODE_PARTITION_USING_FIXED_PARTITIONS` will be set on board
+  targets that have not updated to use the :dtcompatible:`zephyr,mapped-partition` binding for
+  ``zephyr,code-partition`` chosen devices. Support for using fixed-partitions as the chosen
+  ``zephyr,code-partition`` node will be deprecated in the future.
 
 Device Drivers and Devicetree
 *****************************
@@ -193,6 +204,13 @@ ADC
   replace the 14 and 12-bit resolution values. This change may have an impact on power consumption
   if 14 or 12-bit resolutions are used. Previously, power-optimized values were used, now the
   standard values (not power-optimized but better accuracy) are used. No impact on other series.
+
+Clock Control
+=============
+
+* ``bflb,bl60x-pll``, ``bflb,bl61x-root-clk``, ``bflb,bl60x-root-clk``, ``bflb,bl61x-wifipll``,
+  ``bflb,bl70x-root-clk`` and ``bflb,bl61x-flash-clk`` got respectively replaced with
+  :dtcompatible:`bflb,flash-clk`, :dtcompatible:`bflb,pll` and :dtcompatible:`bflb,root-clk`.
 
 Controller Area Network (CAN)
 =============================
@@ -409,6 +427,34 @@ Counter
      GPT now uses explicit devicetree properties rather than hardcoded values, allowing
      per-instance customization.
 
+.. _migration_4.4_devicetree:
+
+Devicetree
+==========
+
+* :ref:`dt-bindings` are no longer allowed to specify any default values for
+  the ``#address-cells`` and ``#size-cells`` properties. The semantics for
+  these properties are defined in Devicetree `Specification
+  <https://www.devicetree.org/specifications>`_ section 2.3.5 and users should
+  not try to override them with their own defaults.
+
+  The following bindings syntax now causes build errors:
+
+  .. code-block:: yaml
+
+     properties:
+       "#address-cells":
+         default: ...             <---- any default is a build error
+       "#size-cells":
+         default: ...             <---- any default is a build error
+
+  If you were relying on default values in your bindings, you now must
+  explicitly specify the values in your devicetree source to fix these build
+  errors.
+
+* The devicetree compatible ``ilitek,ili9806e-dsi`` was renamed.
+  Use :dtcompatible:`ilitek,ili9806e` instead.
+
 Display
 =======
 
@@ -455,6 +501,8 @@ EEPROM
 * Added :c:func:`eeprom_target_read_data()` and :c:func:`eeprom_target_write_data()` which takes an
   offset and length and deprecated :c:func:`eeprom_target_program()` for the I2C EEPROM target driver.
 
+* Updated :dtcompatible:`microchip,xec-eeprom` for PCR and GIRQ properties to use new macros (:github:`104591`).
+
 ESP32-S3
 ========
 
@@ -494,10 +542,11 @@ Ethernet
   * :dtcompatible:`nxp,enet-mac` (:github:`102775`)
   * :dtcompatible:`sensry,sy1xx-mac` (:github:`100619`)
   * :dtcompatible:`st,stm32n6-ethernet`, :dtcompatible:`st,stm32h7-ethernet`
-    and :dtcompatible:`st,stm32-ethernet` (:github:`102810`)
+    and :dtcompatible:`st,stm32-ethernet` (:github:`102810`, :github:`105090`)
   * :dtcompatible:`virtio,net` (:github:`100106`)
   * :dtcompatible:`vnd,ethernet` (:github:`96598`)
   * :dtcompatible:`wiznet,w5500` (:github:`100919`)
+  * :dtcompatible:`snps,designware-ethernet` (:github:`105090`)
 
 * The ``fixed-link`` property has been removed from :dtcompatible:`ethernet-phy`. Use
   the new :dtcompatible:`ethernet-phy-fixed-link` compatible instead, if that functionality
@@ -513,6 +562,13 @@ Ethernet
   defaulting to the value of :kconfig:option:`CONFIG_ETH_INIT_PRIORITY`. Same for
   :kconfig:option:`CONFIG_PTP_CLOCK_INIT_PRIORITY`,  but only if :kconfig:option:`CONFIG_ETH_DRIVER`
   is enabled. This way the priority is based on the dependencies in the devicetree.
+  (:github:`104310`)
+
+* Drivers, that support checksum offloading, now need to select the new Kconfig option
+  :kconfig:option:`CONFIG_NET_CHECKSUM_OFFLOAD_SUPPORTED`.
+  :kconfig:option:`CONFIG_NET_CHECKSUM_OFFLOAD` needs to be enabled to use checksum offloading.
+  It is enabled by default if :kconfig:option:`CONFIG_NET_CHECKSUM_OFFLOAD_SUPPORTED` is selected.
+  (:github:`105051`)
 
 File System
 ===========
@@ -520,12 +576,13 @@ File System
 * :kconfig:option:`CONFIG_FS_FATFS_FSTAB_AUTOMOUNT` is now enabled by default, if any enabled
   :dtcompatible:`zephyr,fstab,fatfs` with the ``automount`` property are present in the devicetree.
   Applications that do not want this behavior need to explicitly disable this option.
+  (:github:`103139`)
 
 * NVS and ZMS have been moved to the new Key-Value Storage Systems (KVSS) subsystem; the move
   affects NVS and ZMS interface header paths which have been moved from
   ``zephyr/fs/`` to ``zephyr/kvss/``.
   Kconfig options for NVS and ZMS have been moved from underneath "File Systems" menu to
-  "Key-Value Storage Systems" menu, no Kconfigs have been affected.
+  "Key-Value Storage Systems" menu, no Kconfigs have been affected. (:github:`103244`)
 
 GPIO
 ====
@@ -650,6 +707,23 @@ NXP
 
     git grep "#include <nxp/nxp_" -- '*.dtsi' '*.dts' '*.overlay'
 
+* :dtcompatible:`nxp,lptmr` nodes used as the system timer must now be
+  designated via the ``zephyr,system-timer`` chosen property. Boards based on
+  i.MX95 and MCX-W SoCs already have this set in the SoC DTSI and require no
+  change. All other boards using :kconfig:option:`CONFIG_MCUX_LPTMR_TIMER`
+  must add a board overlay:
+
+  .. code-block:: devicetree
+
+     / {
+         chosen {
+             zephyr,system-timer = &lptmr0;
+         };
+     };
+
+  On Kinetis KE1xF, this overlay is also required when
+  :kconfig:option:`CONFIG_PM` is enabled.
+
 QSPI
 ====
 
@@ -742,6 +816,18 @@ Stepper
   3. Remove ``en-gpios`` property if present
 
 * :dtcompatible:`adi,tmc50xx` and :dtcompatible:`adi,tmc51xx` devices are now modeled as MFDs.
+
+* Removed the Kconfig.stepper_event_template template used to generate the
+  :kconfig:option:`CONFIG_STEPPER_*_GENERATE_ISR_SAFE_EVENTS` and
+  :kconfig:option:`CONFIG_STEPPER_*_EVENT_QUEUE_LEN` symbols
+
+* :kconfig:option:`CONFIG_STEPPER_STEP_DIR_GENERATE_ISR_SAFE_EVENTS` is replaced by
+  :kconfig:option:`CONFIG_STEPPER_CTRL_ISR_SAFE_EVENTS`
+
+* :kconfig:option:`CONFIG_STEPPER_STEP_DIR_EVENT_QUEUE_LEN` is replaced by
+  :kconfig:option:`CONFIG_STEPPER_CTRL_EVENT_QUEUE_LEN`
+
+* :kconfig:option:`CONFIG_STEPPER_CTRL_ISR_SAFE_EVENTS` is now enabled by default
 
 STM32
 =====
@@ -837,6 +923,7 @@ USB
 Video
 =====
 
+* ``CONFIG_VIDEO_HIMAX_HM01B0`` has been renamed into :kconfig:option:`CONFIG_VIDEO_HM01B0`.
 * CONFIG_VIDEO_OV7670 is now gone and replaced by CONFIG_VIDEO_OV767X.  This allows supporting both the OV7670 and 0V7675.
 * :kconfig:option:`CONFIG_VIDEO_BUFFER_POOL_SZ_MAX` is replaced by
   :kconfig:option:`CONFIG_VIDEO_BUFFER_POOL_HEAP_SIZE` which represent the
@@ -844,6 +931,17 @@ Video
 
 * The :dtcompatible:`ovti,ov2640` reset pin handling has been corrected, resulting in an inverted
   active level compared to before, to match the active level expected by the sensor.
+
+* The following pixel formats were renamed to keep consistency with the data ():github:`105522`):
+
+  * :c:macro:`VIDEO_PIX_FMT_ARGB32` (swapped with :c:macro:`VIDEO_PIX_FMT_BGRA32`)
+  * :c:macro:`VIDEO_PIX_FMT_BGRA32` (swapped with :c:macro:`VIDEO_PIX_FMT_ARGB32`)
+  * :c:macro:`VIDEO_PIX_FMT_RGBA32` (unchanged)
+  * :c:macro:`VIDEO_PIX_FMT_ABGR32` (unchanged)
+  * :c:macro:`VIDEO_PIX_FMT_XRGB32` (unchanged)
+  * :c:macro:`VIDEO_PIX_FMT_XBGR32` (newly introduced)
+  * :c:macro:`VIDEO_PIX_FMT_BGRX32` (newly introduced)
+  * :c:macro:`VIDEO_PIX_FMT_RGBX32` (newly introduced)
 
 Watchdog
 ========
@@ -913,6 +1011,9 @@ Bluetooth Audio
 * :c:func:`bt_tbs_set_uri_scheme_list` now only takes a single string value,
   instead of a list/array of URIs. Applications will need to modify any current input
   from e.g. ``{"tel", "skype"}`` to ``"tel,skype"``. (:github:`102724`)
+* ``CONFIG_BT_TBS_SUPPORTED_FEATURES`` has been removed. Applications should use the defined macros
+  :c:macro:`BT_TBS_FEATURE_HOLD` and :c:macro:`BT_TBS_FEATURE_JOIN` to set their supported features.
+  (:github:`102666`)
 
 Bluetooth Mesh
 ==============
@@ -944,6 +1045,9 @@ Networking
   networking header files will no longer include those. If the application or Zephyr internal
   code cannot use POSIX APIs, then the relevant network API prefix needs to be added to the
   code calling a network API.
+
+* The return type of :c:type:`net_icmp_handler_t` has changed from ``int`` to
+  :c:enum:`net_verdict`. (:github:`104815`)
 
 * The enum for HTTP server transaction status has been renamed from ``http_data_status``
   to ``http_transaction_status`` to better reflect its purpose. The enum values have also been
@@ -1024,6 +1128,13 @@ LoRaWAN
 Other subsystems
 ****************
 
+CFB
+===
+
+* Change using signed values to represent the coordinates.
+  As a result, :c:func:`cfb_print`, :c:func:`cfb_invert_area`,
+  and :c:struct:`cfb_position` definitions are changed.
+
 * The DAP subsystem initialization and configuration has changed. Please take a look at
   :zephyr:code-sample:`cmsis-dap` sample on how to initialize Zephyr DAP Link with USB backend.
 
@@ -1041,6 +1152,47 @@ Flash
 * ``CONFIG_FLASH_AREA_CHECK_INTEGRITY_PSA`` is also removed since there is
   now no alternative for the crypto library backend.
 
+* The flash shell commands ``flash erase`` and ``flash write`` now require an explicit
+  device argument. This avoids accidental corruption of the device's program flash.
+
+Flash map
+=========
+
+* The following :zephyr_file:`include/zephyr/storage/flash_map.h` macros have been deprecated and
+  replaced:
+
+  +-----------------------------------------+-----------------------------------+
+  | Deprecated macro                        | Replacement macro                 |
+  +=========================================+===================================+
+  | :c:macro:`FIXED_PARTITION_EXISTS`       | :c:macro:`PARTITION_EXISTS`       |
+  +-----------------------------------------+-----------------------------------+
+  | :c:macro:`FIXED_PARTITION_ID`           | :c:macro:`PARTITION_ID`           |
+  +-----------------------------------------+-----------------------------------+
+  | :c:macro:`FIXED_PARTITION_OFFSET`       | :c:macro:`PARTITION_OFFSET`       |
+  +-----------------------------------------+-----------------------------------+
+  | :c:macro:`FIXED_PARTITION_ADDRESS`      | :c:macro:`PARTITION_ADDRESS`      |
+  +-----------------------------------------+-----------------------------------+
+  | :c:macro:`FIXED_PARTITION_NODE_ADDRESS` | :c:macro:`PARTITION_NODE_ADDRESS` |
+  +-----------------------------------------+-----------------------------------+
+  | :c:macro:`FIXED_PARTITION_NODE_OFFSET`  | :c:macro:`PARTITION_NODE_OFFSET`  |
+  +-----------------------------------------+-----------------------------------+
+  | :c:macro:`FIXED_PARTITION_SIZE`         | :c:macro:`PARTITION_SIZE`         |
+  +-----------------------------------------+-----------------------------------+
+  | :c:macro:`FIXED_PARTITION_NODE_SIZE`    | :c:macro:`PARTITION_NODE_SIZE`    |
+  +-----------------------------------------+-----------------------------------+
+  | :c:macro:`FIXED_PARTITION_DEVICE`       | :c:macro:`PARTITION_DEVICE`       |
+  +-----------------------------------------+-----------------------------------+
+  | :c:macro:`FIXED_PARTITION_NODE_DEVICE`  | :c:macro:`PARTITION_NODE_DEVICE`  |
+  +-----------------------------------------+-----------------------------------+
+  | :c:macro:`FIXED_PARTITION_MTD`          | :c:macro:`PARTITION_MTD`          |
+  +-----------------------------------------+-----------------------------------+
+  | :c:macro:`FIXED_PARTITION_NODE_MTD`     | :c:macro:`PARTITION_NODE_MTD`     |
+  +-----------------------------------------+-----------------------------------+
+  | :c:macro:`FIXED_PARTITION_BY_NODE`      | :c:macro:`PARTITION_BY_NODE`      |
+  +-----------------------------------------+-----------------------------------+
+
+  These new macros also add support for the :dtcompatible:`zephyr,mapped-partition` binding.
+
 JWT
 ===
 
@@ -1056,6 +1208,11 @@ Libsbc
 
 Management
 ==========
+
+* hawkBit
+
+  * The deprecated Kconfig option ``CONFIG_HAWKBIT_DDI_NO_SECURITY`` has been removed.
+    (:github:`105150`)
 
 * MCUmgr
 

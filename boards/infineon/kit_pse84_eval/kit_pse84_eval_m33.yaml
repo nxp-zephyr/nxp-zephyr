@@ -12,9 +12,11 @@ ram: 5120
 toolchain:
   - zephyr
 supported:
+  - bluetooth
   - clock_control
   - dma
   - gpio
   - pinctrl
   - uart
   - spi
+  - i2s

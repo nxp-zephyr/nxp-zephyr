@@ -232,7 +232,7 @@ if(CONFIG_BUILD_WITH_TFM)
   if(${ZEPHYR_TOOLCHAIN_VARIANT} STREQUAL "zephyr")
     set(TFM_TOOLCHAIN_FILE "toolchain_GNUARM.cmake")
     set(TFM_TOOLCHAIN_PREFIX "arm-zephyr-eabi")
-    set(TFM_TOOLCHAIN_PATH ${ZEPHYR_SDK_INSTALL_DIR}/arm-zephyr-eabi/bin)
+    set(TFM_TOOLCHAIN_PATH ${ZEPHYR_SDK_INSTALL_DIR}/gnu/arm-zephyr-eabi/bin)
   elseif(${ZEPHYR_TOOLCHAIN_VARIANT} STREQUAL "gnuarmemb")
     set(TFM_TOOLCHAIN_FILE "toolchain_GNUARM.cmake")
     set(TFM_TOOLCHAIN_PREFIX "arm-none-eabi")
@@ -249,6 +249,10 @@ if(CONFIG_BUILD_WITH_TFM)
       "with TF-M due to licensing issues with a dependent library. This "
       "restriction will be removed once licensing issues have been resolved."
       )
+  endif()
+
+  if(CONFIG_TFM_ZEPHYR_4_0_TO_4_2_COMPATIBILITY)
+    list(APPEND TFM_CMAKE_ARGS -DPROFILE_DEFINITION_LARGE=ON)
   endif()
 
   string(REPLACE "toolchain" "toolchain_ns" TFM_TOOLCHAIN_NS_FILE ${TFM_TOOLCHAIN_FILE})

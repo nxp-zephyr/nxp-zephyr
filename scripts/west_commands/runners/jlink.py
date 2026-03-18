@@ -5,6 +5,7 @@
 '''Runner for debugging with J-Link.'''
 
 import argparse
+import errno
 import ipaddress
 import logging
 import os
@@ -55,7 +56,8 @@ class JLinkBinaryRunner(ZephyrBinaryRunner):
                  gdb_host='',
                  gdb_port=DEFAULT_JLINK_GDB_PORT,
                  rtt_port=DEFAULT_JLINK_RTT_PORT,
-                 tui=False, tool_opt=None, dev_id_type=None, batch=False):
+                 tui=False, tool_opt=None, dev_id_type=None, batch=False,
+                 pre_script_cmds=None):
         super().__init__(cfg)
         self.file = cfg.file
         self.file_type = cfg.file_type
@@ -83,6 +85,7 @@ class JLinkBinaryRunner(ZephyrBinaryRunner):
         self.rtt_port = rtt_port
         self.dev_id_type = dev_id_type
         self.is_batch = batch
+        self.pre_script_cmds = pre_script_cmds
 
         self.tool_opt = []
         if tool_opt is not None:
@@ -203,6 +206,9 @@ class JLinkBinaryRunner(ZephyrBinaryRunner):
         parser.add_argument('--dev-id-type', choices=['auto', 'serialno', 'tty', 'ip', 'tunnel'],
                             default='auto', help='Device type. "auto" (default) auto-detects '
                             'the type, or specify explicitly')
+        parser.add_argument('--pre-script-cmd', action='append', dest='pre_script_cmds',
+                            help='Custom JLink command to prepend to the runner.jlink. Can be '
+                            'given multiple times. ArgParse should preserve their order.')
 
         parser.set_defaults(reset=False)
 
@@ -225,7 +231,8 @@ class JLinkBinaryRunner(ZephyrBinaryRunner):
                                  rtt_port=args.rtt_port,
                                  tui=args.tui, tool_opt=args.tool_opt,
                                  dev_id_type=args.dev_id_type,
-                                 batch=args.batch)
+                                 batch=args.batch,
+                                 pre_script_cmds=args.pre_script_cmds)
 
     def print_gdbserver_message(self):
         if not self.thread_info_enabled:
@@ -377,17 +384,29 @@ class JLinkBinaryRunner(ZephyrBinaryRunner):
             server_cmd += ['-nohalt']
             server_proc = self.popen_ignore_int(server_cmd)
             try:
-                sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                sock = None
                 # wait for the port to be open
                 while server_proc.poll() is None:
+                    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
                     try:
                         sock.connect(('localhost', self.rtt_port))
                         break
-                    except ConnectionRefusedError:
-                        time.sleep(0.1)
+                    except OSError as e:
+                        sock.close()
+                        # On at least macOS sock.connect() can fail with the
+                        # exception OSError(22, 'Invalid argument'), which
+                        # corresponds to errno EINVAL, by leaving the socket in
+                        # a non-recoverable state, hence let's wait and try
+                        # again.
+                        if e.errno in (errno.ECONNREFUSED, errno.EINVAL):
+                            time.sleep(0.1)
+                        else:
+                            raise e
                 self.run_telnet_client('localhost', self.rtt_port, sock)
-            except Exception as e:
-                self.logger.error(e)
+            except OSError as e:
+                self.logger.error(
+                    f'Failed to connect to the localhost:{self.rtt_port} socket: {e}',
+                )
             finally:
                 server_proc.terminate()
                 server_proc.wait()
@@ -434,7 +453,9 @@ class JLinkBinaryRunner(ZephyrBinaryRunner):
                 self.run_client(client_cmd)
 
     def get_default_flash_commands(self):
-        lines = [
+        lines = self.pre_script_cmds or [] # Prepend custom script commands
+
+        lines += [
             'ExitOnError 1',  # Treat any command-error as fatal
             'r',  # Reset and halt the target
             'BE' if self.build_conf.getboolean('CONFIG_BIG_ENDIAN') else 'LE'

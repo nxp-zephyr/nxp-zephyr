@@ -441,8 +441,6 @@ device.
      - Selects the CRC device used as an accelerator by the CRC subsystem
    * - zephyr,display
      - Sets the default display controller
-   * - zephyr,keyboard-scan
-     - Sets the default keyboard scan controller
    * - zephyr,dtcm
      - Data Tightly Coupled Memory node on some Arm SoCs
    * - zephyr,entropy
@@ -490,6 +488,10 @@ device.
    * - zephyr,sram
      - A node whose ``reg`` sets the base address and size of SRAM memory
        available to the Zephyr image, used during linking
+   * - zephyr,system-timer
+     - Selects the hardware timer instance used as the Zephyr system timer.
+       Used when devicetree selects which timer instance provides that
+       singleton system function.
    * - zephyr,tracing-uart
      - Sets UART device used by tracing subsystem
    * - zephyr,uart-mcumgr

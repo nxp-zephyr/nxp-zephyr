@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2025 MASSDRIVER EI (massdriver.space)
+ * Copyright (c) 2025-2026 MASSDRIVER EI (massdriver.space)
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -21,18 +21,24 @@ LOG_MODULE_REGISTER(clock_control_bl70x, CONFIG_CLOCK_CONTROL_LOG_LEVEL);
 #include <bouffalolab/bl70x/pds_reg.h>
 #include <bouffalolab/bl70x/l1c_reg.h>
 #include <bouffalolab/bl70x/extra_defines.h>
+#include <bouffalolab/bl70x/sf_ctrl_reg.h>
 #include <zephyr/drivers/clock_control/clock_control_bflb_common.h>
 
 #define CLK_SRC_IS(clk, src)                                                                       \
 	DT_SAME_NODE(DT_CLOCKS_CTLR_BY_IDX(DT_INST_CLOCKS_CTLR_BY_NAME(0, clk), 0),                \
 		     DT_INST_CLOCKS_CTLR_BY_NAME(0, src))
 
-#define CLOCK_TIMEOUT               1024
-#define EFUSE_RC32M_TRIM_OFFSET     0x0C
-#define EFUSE_RC32M_TRIM_EN_POS     19
-#define EFUSE_RC32M_TRIM_PARITY_POS 18
-#define EFUSE_RC32M_TRIM_POS        10
-#define EFUSE_RC32M_TRIM_MSK        0x3FC00
+#define CLOCK_TIMEOUT			1024
+#define EFUSE_RC32M_TRIM_OFFSET		0x0C
+#define EFUSE_RC32M_TRIM_EN_POS		19
+#define EFUSE_RC32M_TRIM_PARITY_POS	18
+#define EFUSE_RC32M_TRIM_POS		10
+#define EFUSE_RC32M_TRIM_MSK		0x3FC00
+#define EFUSE_RC32K_TRIM_OFFSET		0x0C
+#define EFUSE_RC32K_TRIM_EN_POS		31
+#define EFUSE_RC32K_TRIM_PARITY_POS	30
+#define EFUSE_RC32K_TRIM_POS		20
+#define EFUSE_RC32K_TRIM_MSK		0x3FF00000
 
 enum bl70x_clkid {
 	bl70x_clkid_clk_root = BL70X_CLKID_CLK_ROOT,
@@ -40,11 +46,14 @@ enum bl70x_clkid {
 	bl70x_clkid_clk_crystal = BL70X_CLKID_CLK_CRYSTAL,
 	bl70x_clkid_clk_dll = BL70X_CLKID_CLK_DLL,
 	bl70x_clkid_clk_bclk = BL70X_CLKID_CLK_BCLK,
+	bl70x_clkid_clk_f32k = BL70X_CLKID_CLK_F32K,
+	bl70x_clkid_clk_xtal32k = BL70X_CLKID_CLK_XTAL32K,
+	bl70x_clkid_clk_rc32k = BL70X_CLKID_CLK_RC32K,
 };
 
 struct clock_control_bl70x_dll_config {
 	enum bl70x_clkid source;
-	bool overclock;
+	bool enabled;
 };
 
 struct clock_control_bl70x_root_config {
@@ -57,13 +66,65 @@ struct clock_control_bl70x_bclk_config {
 	uint8_t divider;
 };
 
+struct clock_control_bl70x_flashclk_config {
+	enum bl70x_clkid	source;
+	uint8_t			divider;
+	uint8_t			read_delay;
+	bool			clock_invert;
+	bool			rx_clock_invert;
+};
+
+struct clock_control_bl70x_f32k_config {
+	enum bl70x_clkid	source;
+	bool			xtal_enabled;
+};
+
 struct clock_control_bl70x_data {
 	bool crystal_enabled;
-	bool dll_enabled;
-	struct clock_control_bl70x_dll_config dll;
-	struct clock_control_bl70x_root_config root;
-	struct clock_control_bl70x_bclk_config bclk;
+	struct clock_control_bl70x_dll_config		dll;
+	struct clock_control_bl70x_root_config		root;
+	struct clock_control_bl70x_bclk_config		bclk;
+	struct clock_control_bl70x_flashclk_config	flashclk;
+	struct clock_control_bl70x_f32k_config		f32k;
 };
+
+static void clock_control_bl70x_clock_at_least_us(uint32_t us)
+{
+	for (uint32_t i = 0; i < us * 8; i++) {
+		clock_bflb_settle();
+	}
+}
+
+/* 0: rc32k
+ * 1: xtal32k
+ * 3: dig32k
+ */
+static void clock_control_bl70x_set_f32k_src(uint8_t src)
+{
+	uint32_t tmp;
+
+	tmp = sys_read32(HBN_BASE + HBN_GLB_OFFSET);
+	tmp &= HBN_F32K_SEL_UMSK;
+	tmp |= src << HBN_F32K_SEL_POS;
+	sys_write32(tmp, HBN_BASE + HBN_GLB_OFFSET);
+}
+
+static void clock_control_bl70x_rc32k_enabled(bool yes)
+{
+	uint32_t tmp;
+
+	tmp = sys_read32(HBN_BASE + HBN_GLB_OFFSET);
+	tmp &= HBN_PU_RC32K_UMSK;
+	if (yes) {
+		tmp |= HBN_PU_RC32K_MSK;
+	}
+	sys_write32(tmp, HBN_BASE + HBN_GLB_OFFSET);
+}
+
+static bool clock_control_bl70x_rc32k_is_enabled(void)
+{
+	return (sys_read32(HBN_BASE + HBN_GLB_OFFSET) & HBN_PU_RC32K_MSK) != 0;
+}
 
 static int clock_control_bl70x_deinit_crystal(void)
 {
@@ -382,7 +443,7 @@ static void clock_control_bl70x_cache_2T(bool yes)
 	sys_write32(tmp, L1C_BASE + L1C_CONFIG_OFFSET);
 }
 
-static void clock_control_bl70x_init_root_as_dll(const struct device *dev)
+static void clock_control_bl70x_setup_dll(const struct device *dev)
 {
 	struct clock_control_bl70x_data *data = dev->data;
 	uint32_t tmp;
@@ -402,6 +463,11 @@ static void clock_control_bl70x_init_root_as_dll(const struct device *dev)
 	tmp = sys_read32(GLB_BASE + GLB_CLK_CFG0_OFFSET);
 	tmp = (tmp & GLB_REG_PLL_EN_UMSK) | (1U << GLB_REG_PLL_EN_POS);
 	sys_write32(tmp, GLB_BASE + GLB_CLK_CFG0_OFFSET);
+}
+
+static void clock_control_bl70x_init_root_as_dll(const struct device *dev)
+{
+	struct clock_control_bl70x_data *data = dev->data;
 
 	clock_control_bl70x_select_DLL(data->root.dll_select);
 
@@ -424,7 +490,142 @@ static void clock_control_bl70x_init_root_as_crystal(const struct device *dev)
 	sys_write32(clock_control_bl70x_get_clk(dev), CORECLOCKREGISTER);
 }
 
-static int clock_control_bl70x_update_root(const struct device *dev)
+static __ramfunc void clock_control_bl70x_update_flash_clk(const struct device *dev)
+{
+	struct clock_control_bl70x_data *data = dev->data;
+	volatile uint32_t tmp;
+
+	tmp = *(volatile uint32_t *)(GLB_BASE + GLB_CLK_CFG2_OFFSET);
+	tmp &= GLB_SF_CLK_DIV_UMSK;
+	tmp &= GLB_SF_CLK_EN_UMSK;
+	tmp |= (data->flashclk.divider - 1) << GLB_SF_CLK_DIV_POS;
+	*(volatile uint32_t *)(GLB_BASE + GLB_CLK_CFG2_OFFSET) = tmp;
+
+	tmp = *(volatile uint32_t *)(SF_CTRL_BASE + SF_CTRL_0_OFFSET);
+	tmp |= SF_CTRL_SF_IF_READ_DLY_EN_MSK;
+	tmp &= ~SF_CTRL_SF_IF_READ_DLY_N_MSK;
+	tmp |= (data->flashclk.read_delay << SF_CTRL_SF_IF_READ_DLY_N_POS);
+	if (data->flashclk.clock_invert) {
+		tmp &= ~SF_CTRL_SF_CLK_OUT_INV_SEL_MSK;
+	} else {
+		tmp |= SF_CTRL_SF_CLK_OUT_INV_SEL_MSK;
+	}
+	if (data->flashclk.rx_clock_invert) {
+		tmp |= SF_CTRL_SF_CLK_SF_RX_INV_SEL_MSK;
+	} else {
+		tmp &= ~SF_CTRL_SF_CLK_SF_RX_INV_SEL_MSK;
+	}
+	*(volatile uint32_t *)(SF_CTRL_BASE + SF_CTRL_0_OFFSET) = tmp;
+
+	tmp = *(volatile uint32_t *)(GLB_BASE + GLB_CLK_CFG2_OFFSET);
+	tmp &= GLB_SF_CLK_SEL_UMSK;
+	tmp &= GLB_SF_CLK_SEL2_UMSK;
+	if (data->flashclk.source == bl70x_clkid_clk_dll) {
+		tmp |= 0U << GLB_SF_CLK_SEL_POS;
+		tmp |= 0U << GLB_SF_CLK_SEL2_POS;
+	} else if (data->flashclk.source == bl70x_clkid_clk_crystal) {
+		tmp |= 0U << GLB_SF_CLK_SEL_POS;
+		tmp |= 1U << GLB_SF_CLK_SEL2_POS;
+	} else {
+		/* If using RC32M or BCLK, use BCLK */
+		tmp |= 2U << GLB_SF_CLK_SEL_POS;
+	}
+
+	*(volatile uint32_t *)(GLB_BASE + GLB_CLK_CFG2_OFFSET) = tmp;
+
+	tmp = *(volatile uint32_t *)(GLB_BASE + GLB_CLK_CFG2_OFFSET);
+	tmp |= GLB_SF_CLK_EN_MSK;
+	*(volatile uint32_t *)(GLB_BASE + GLB_CLK_CFG2_OFFSET) = tmp;
+
+	clock_bflb_settle();
+}
+
+static int clock_control_bl70x_clock_trim_32K(void)
+{
+	uint32_t tmp;
+	int err;
+	uint32_t trim, trim_parity;
+	const struct device *efuse = DEVICE_DT_GET_ONE(bflb_efuse);
+
+	err = syscon_read_reg(efuse, EFUSE_RC32K_TRIM_OFFSET, &trim);
+	if (err < 0) {
+		LOG_ERR("Error: Couldn't read efuses: err: %d.\n", err);
+		return err;
+	}
+	if (!((trim >> EFUSE_RC32K_TRIM_EN_POS) & 1)) {
+		LOG_ERR("RC32K trim disabled!");
+		return -EINVAL;
+	}
+
+	trim_parity = (trim >> EFUSE_RC32K_TRIM_PARITY_POS) & 1;
+	trim = (trim & EFUSE_RC32K_TRIM_MSK) >> EFUSE_RC32K_TRIM_POS;
+
+	if (trim_parity != (POPCOUNT(trim) & 1)) {
+		LOG_ERR("Bad trim parity");
+		return -EINVAL;
+	}
+
+	tmp = sys_read32(HBN_BASE + HBN_RC32K_CTRL0_OFFSET);
+	tmp |= HBN_RC32K_EXT_CODE_EN_MSK;
+	tmp = (tmp & HBN_RC32K_CODE_FR_EXT_UMSK) | trim << HBN_RC32K_CODE_FR_EXT_POS;
+	sys_write32(tmp, HBN_BASE + HBN_RC32K_CTRL0_OFFSET);
+
+	clock_bflb_settle();
+
+	return 0;
+}
+
+static int clock_control_bl70x_update_f32k(const struct device *dev)
+{
+	struct clock_control_bl70x_data *data = dev->data;
+	bool wait_change = false;
+	uint32_t tmp, tmpold;
+	int ret;
+
+	if (data->f32k.source != bl70x_clkid_clk_xtal32k
+		&& data->f32k.source != bl70x_clkid_clk_rc32k) {
+		return -EINVAL;
+	}
+
+	if (!clock_control_bl70x_rc32k_is_enabled()) {
+		clock_control_bl70x_rc32k_enabled(true);
+		wait_change = true;
+	}
+
+	if (data->f32k.xtal_enabled) {
+		tmp = sys_read32(HBN_BASE + HBN_XTAL32K_OFFSET);
+		tmpold = tmp;
+		tmp |= HBN_PU_XTAL32K_MSK;
+		tmp |= HBN_PU_XTAL32K_BUF_MSK;
+		if (tmpold != tmp) {
+			sys_write32(tmp, HBN_BASE + HBN_XTAL32K_OFFSET);
+			wait_change = true;
+		}
+	} else {
+		tmp = sys_read32(HBN_BASE + HBN_XTAL32K_OFFSET);
+		tmp &= HBN_PU_XTAL32K_UMSK;
+		tmp &= HBN_PU_XTAL32K_BUF_UMSK;
+		sys_write32(tmp, HBN_BASE + HBN_XTAL32K_OFFSET);
+	}
+
+	if (wait_change) {
+		clock_control_bl70x_clock_at_least_us(1000);
+	}
+
+	if (data->f32k.source == bl70x_clkid_clk_rc32k) {
+		ret = clock_control_bl70x_clock_trim_32K();
+		if (ret < 0) {
+			return ret;
+		}
+		clock_control_bl70x_set_f32k_src(0);
+	} else {
+		clock_control_bl70x_set_f32k_src(1);
+	}
+
+	return 0;
+}
+
+static int clock_control_bl70x_update_clocks(const struct device *dev)
 {
 	struct clock_control_bl70x_data *data = dev->data;
 	uint32_t tmp;
@@ -442,6 +643,13 @@ static int clock_control_bl70x_update_root(const struct device *dev)
 	clock_control_bl70x_set_root_clock_dividers(0, 0);
 	sys_write32(BFLB_RC32M_FREQUENCY, CORECLOCKREGISTER);
 
+	clock_control_bl70x_cache_2T(false);
+
+	ret = clock_control_bl70x_update_f32k(dev);
+	if (ret < 0) {
+		return ret;
+	}
+
 	if (data->crystal_enabled) {
 		if (clock_control_bl70x_init_crystal() < 0) {
 			return -EIO;
@@ -452,9 +660,21 @@ static int clock_control_bl70x_update_root(const struct device *dev)
 
 	clock_control_bl70x_set_root_clock_dividers(data->root.divider - 1, data->bclk.divider - 1);
 
+	if (data->dll.enabled) {
+		clock_control_bl70x_setup_dll(dev);
+	} else {
+		clock_control_bl70x_deinit_dll();
+	}
+
 	if (data->root.source == bl70x_clkid_clk_dll) {
+		if (!data->dll.enabled) {
+			return -EINVAL;
+		}
 		clock_control_bl70x_init_root_as_dll(dev);
 	} else if (data->root.source == bl70x_clkid_clk_crystal) {
+		if (!data->crystal_enabled) {
+			return -EINVAL;
+		}
 		clock_control_bl70x_init_root_as_crystal(dev);
 	} else {
 		/* Root clock already setup as RC32M */
@@ -556,19 +776,19 @@ static int clock_control_bl70x_on(const struct device *dev, clock_control_subsys
 			ret = 0;
 		} else {
 			data->crystal_enabled = true;
-			ret = clock_control_bl70x_update_root(dev);
+			ret = clock_control_bl70x_update_clocks(dev);
 			if (ret < 0) {
 				data->crystal_enabled = false;
 			}
 		}
 	} else if ((enum bl70x_clkid)sys == bl70x_clkid_clk_dll) {
-		if (data->dll_enabled) {
+		if (data->dll.enabled) {
 			ret = 0;
 		} else {
-			data->dll_enabled = true;
-			ret = clock_control_bl70x_update_root(dev);
+			data->dll.enabled = true;
+			ret = clock_control_bl70x_update_clocks(dev);
 			if (ret < 0) {
-				data->dll_enabled = false;
+				data->dll.enabled = false;
 			}
 		}
 	} else if ((int)sys == BFLB_FORCE_ROOT_RC32M) {
@@ -577,7 +797,7 @@ static int clock_control_bl70x_on(const struct device *dev, clock_control_subsys
 		} else {
 			/* Cannot fail to set root to rc32m */
 			data->root.source = bl70x_clkid_clk_rc32m;
-			ret = clock_control_bl70x_update_root(dev);
+			ret = clock_control_bl70x_update_clocks(dev);
 		}
 	} else if ((int)sys == BFLB_FORCE_ROOT_CRYSTAL) {
 		if (data->root.source == bl70x_clkid_clk_crystal) {
@@ -585,7 +805,7 @@ static int clock_control_bl70x_on(const struct device *dev, clock_control_subsys
 		} else {
 			oldroot = data->root.source;
 			data->root.source = bl70x_clkid_clk_crystal;
-			ret = clock_control_bl70x_update_root(dev);
+			ret = clock_control_bl70x_update_clocks(dev);
 			if (ret < 0) {
 				data->root.source = oldroot;
 			}
@@ -596,7 +816,7 @@ static int clock_control_bl70x_on(const struct device *dev, clock_control_subsys
 		} else {
 			oldroot = data->root.source;
 			data->root.source = bl70x_clkid_clk_dll;
-			ret = clock_control_bl70x_update_root(dev);
+			ret = clock_control_bl70x_update_clocks(dev);
 			if (ret < 0) {
 				data->root.source = oldroot;
 			}
@@ -620,19 +840,19 @@ static int clock_control_bl70x_off(const struct device *dev, clock_control_subsy
 			ret = 0;
 		} else {
 			data->crystal_enabled = false;
-			ret = clock_control_bl70x_update_root(dev);
+			ret = clock_control_bl70x_update_clocks(dev);
 			if (ret < 0) {
 				data->crystal_enabled = true;
 			}
 		}
 	} else if ((enum bl70x_clkid)sys == bl70x_clkid_clk_dll) {
-		if (!data->dll_enabled) {
+		if (!data->dll.enabled) {
 			ret = 0;
 		} else {
-			data->dll_enabled = false;
-			ret = clock_control_bl70x_update_root(dev);
+			data->dll.enabled = false;
+			ret = clock_control_bl70x_update_clocks(dev);
 			if (ret < 0) {
-				data->dll_enabled = true;
+				data->dll.enabled = true;
 			}
 		}
 	}
@@ -657,7 +877,7 @@ static enum clock_control_status clock_control_bl70x_get_status(const struct dev
 		}
 		return CLOCK_CONTROL_STATUS_OFF;
 	case bl70x_clkid_clk_dll:
-		if (data->dll_enabled) {
+		if (data->dll.enabled) {
 			return CLOCK_CONTROL_STATUS_ON;
 		}
 		return CLOCK_CONTROL_STATUS_OFF;
@@ -690,7 +910,7 @@ static int clock_control_bl70x_init(const struct device *dev)
 
 	key = irq_lock();
 
-	ret = clock_control_bl70x_update_root(dev);
+	ret = clock_control_bl70x_update_clocks(dev);
 	if (ret < 0) {
 		irq_unlock(key);
 		return ret;
@@ -699,6 +919,8 @@ static int clock_control_bl70x_init(const struct device *dev)
 	clock_control_bl70x_peripheral_clock_init();
 
 	clock_bflb_settle();
+
+	clock_control_bl70x_update_flash_clk(dev);
 
 	irq_unlock(key);
 
@@ -714,7 +936,6 @@ static DEVICE_API(clock_control, clock_control_bl70x_api) = {
 
 static struct clock_control_bl70x_data clock_control_bl70x_data = {
 	.crystal_enabled = DT_NODE_HAS_STATUS_OKAY(DT_INST_CLOCKS_CTLR_BY_NAME(0, crystal)),
-	.dll_enabled = DT_NODE_HAS_STATUS_OKAY(DT_INST_CLOCKS_CTLR_BY_NAME(0, dll_144)),
 
 	.root = {
 #if CLK_SRC_IS(root, dll_144)
@@ -734,14 +955,40 @@ static struct clock_control_bl70x_data clock_control_bl70x_data = {
 #else
 			.source = bl70x_clkid_clk_rc32m,
 #endif
+			.enabled = DT_NODE_HAS_STATUS_OKAY(DT_INST_CLOCKS_CTLR_BY_NAME(0, dll_144)),
 		},
 
 	.bclk = {
 			.divider = DT_PROP(DT_INST_CLOCKS_CTLR_BY_NAME(0, bclk), divider),
 		},
+
+	.flashclk = {
+#if CLK_SRC_IS(flash, crystal)
+		.source = bl70x_clkid_clk_crystal,
+#elif CLK_SRC_IS(flash, bclk)
+		.source = bl70x_clkid_clk_bclk,
+#elif CLK_SRC_IS(flash, dll_144)
+		.source = bl70x_clkid_clk_dll,
+#else
+		.source = bl70x_clkid_clk_rc32m,
+#endif
+		.read_delay = DT_PROP(DT_INST_CLOCKS_CTLR_BY_NAME(0, flash), read_delay),
+		.clock_invert = DT_PROP(DT_INST_CLOCKS_CTLR_BY_NAME(0, flash), clock_invert),
+		.rx_clock_invert = DT_PROP(DT_INST_CLOCKS_CTLR_BY_NAME(0, flash), rx_clock_invert),
+		.divider = DT_PROP(DT_INST_CLOCKS_CTLR_BY_NAME(0, flash), divider),
+	},
+
+	.f32k = {
+#if CLK_SRC_IS(f32k, xtal32k)
+		.source = bl70x_clkid_clk_xtal32k,
+#else
+		.source = bl70x_clkid_clk_rc32k,
+#endif
+		.xtal_enabled = DT_NODE_HAS_STATUS_OKAY(DT_INST_CLOCKS_CTLR_BY_NAME(0, xtal32k)),
+	},
 };
 
-BUILD_ASSERT(CLK_SRC_IS(dll_144, crystal) || CLK_SRC_IS(root, crystal)
+BUILD_ASSERT((CLK_SRC_IS(dll_144, crystal) || CLK_SRC_IS(root, crystal))
 		     ? DT_NODE_HAS_STATUS_OKAY(DT_INST_CLOCKS_CTLR_BY_NAME(0, crystal))
 		     : 1,
 	     "Crystal must be enabled to use it");
@@ -751,6 +998,11 @@ BUILD_ASSERT(CLK_SRC_IS(root, dll_144) ?
 	"PLL must be enabled to use it");
 
 BUILD_ASSERT(DT_NODE_HAS_STATUS_OKAY(DT_INST_CLOCKS_CTLR_BY_NAME(0, rc32m)), "RC32M is always on");
+BUILD_ASSERT(DT_NODE_HAS_STATUS_OKAY(DT_INST_CLOCKS_CTLR_BY_NAME(0, rc32k)), "RC32K is always on");
+
+BUILD_ASSERT(CLK_SRC_IS(f32k, xtal32k)
+	? DT_NODE_HAS_STATUS_OKAY(DT_INST_CLOCKS_CTLR_BY_NAME(0, xtal32k)) : 1,
+	"XTAL32K must be enabled to use it");
 
 BUILD_ASSERT(DT_PROP(DT_INST_CLOCKS_CTLR_BY_NAME(0, rc32m), clock_frequency)
 	== BFLB_RC32M_FREQUENCY, "RC32M must be 32M");

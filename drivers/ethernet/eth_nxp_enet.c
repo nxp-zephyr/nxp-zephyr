@@ -515,9 +515,7 @@ static void eth_nxp_enet_iface_init(struct net_if *iface)
 			     sizeof(data->mac_addr),
 			     NET_LINK_ETHERNET);
 
-	if (data->iface == NULL) {
-		data->iface = iface;
-	}
+	data->iface = iface;
 
 #if defined(CONFIG_NET_DSA_DEPRECATED)
 	dsa_register_master_tx(iface, &eth_nxp_enet_tx);
@@ -1063,10 +1061,9 @@ static const struct nxp_enet_mod_config nxp_enet_mod_cfg_##n = {			\
 											\
 static struct nxp_enet_mod_data nxp_enet_mod_data_##n;					\
 											\
-/* Init the module before any of the MAC, MDIO, or PTP clock */				\
 DEVICE_DT_INST_DEFINE(n, nxp_enet_mod_init, NULL,					\
 		&nxp_enet_mod_data_##n, &nxp_enet_mod_cfg_##n,				\
-		POST_KERNEL, 0, NULL);
+		POST_KERNEL, CONFIG_ETH_INIT_PRIORITY, NULL);
 
 #undef DT_DRV_COMPAT
 #define DT_DRV_COMPAT nxp_enet
@@ -1084,10 +1081,9 @@ static const struct nxp_enet_mod_config nxp_enet1g_mod_cfg_##n = {			\
 											\
 static struct nxp_enet_mod_data nxp_enet1g_mod_data_##n;				\
 											\
-/* Init the module before any of the MAC, MDIO, or PTP clock */				\
 DEVICE_DT_INST_DEFINE(n, nxp_enet_mod_init, NULL,					\
 		&nxp_enet1g_mod_data_##n, &nxp_enet1g_mod_cfg_##n,			\
-		POST_KERNEL, 0, NULL);
+		POST_KERNEL, CONFIG_ETH_INIT_PRIORITY, NULL);
 
 #undef DT_DRV_COMPAT
 #define DT_DRV_COMPAT nxp_enet1g
