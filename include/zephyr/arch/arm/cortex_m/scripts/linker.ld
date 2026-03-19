@@ -146,8 +146,9 @@ SECTIONS
 #if DT_NODE_HAS_STATUS(DT_CHOSEN(zephyr_itcm), okay)
 GROUP_START(ITCM)
 
-	SECTION_PROLOGUE(_ITCM_SECTION_NAME,,SUBALIGN(4))
+	SECTION_PROLOGUE(_ITCM_SECTION_NAME,,)
 	{
+		. = ALIGN(4);
 		__itcm_start = .;
 		*(.itcm)
 		*(".itcm.*")
@@ -347,8 +348,9 @@ GROUP_END(ITCM)
 #if DT_NODE_HAS_STATUS(DT_CHOSEN(zephyr_dtcm), okay)
 GROUP_START(DTCM)
 
-	SECTION_PROLOGUE(_DTCM_BSS_SECTION_NAME, (NOLOAD),SUBALIGN(4))
+	SECTION_PROLOGUE(_DTCM_BSS_SECTION_NAME, (NOLOAD),)
 	{
+		. = ALIGN(4);
 		__dtcm_start = .;
 		__dtcm_bss_start = .;
 		*(.dtcm_bss)
@@ -356,16 +358,18 @@ GROUP_START(DTCM)
 		__dtcm_bss_end = .;
 	} GROUP_LINK_IN(DTCM)
 
-	SECTION_PROLOGUE(_DTCM_NOINIT_SECTION_NAME, (NOLOAD),SUBALIGN(4))
+	SECTION_PROLOGUE(_DTCM_NOINIT_SECTION_NAME, (NOLOAD),)
 	{
+		. = ALIGN(4);
 		__dtcm_noinit_start = .;
 		*(.dtcm_noinit)
 		*(".dtcm_noinit.*")
 		__dtcm_noinit_end = .;
 	} GROUP_LINK_IN(DTCM)
 
-	SECTION_PROLOGUE(_DTCM_DATA_SECTION_NAME,,SUBALIGN(4))
+	SECTION_PROLOGUE(_DTCM_DATA_SECTION_NAME,,)
 	{
+		. = ALIGN(4);
 		__dtcm_data_start = .;
 		*(.dtcm_data)
 		*(".dtcm_data.*")
