@@ -22,4 +22,6 @@ supported:
   - can
   - uart
   - mbox
+  - netif:eth
+  - i2c
 vendor: nxp

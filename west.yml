@@ -168,11 +168,11 @@ manifest:
         - hal
     - name: hal_bouffalolab
       path: modules/hal/bouffalolab
-      revision: 6236ecf4224ffb5fe1e3542c0380db951bb14540
+      revision: c71e1197e7e9e0fd7be801844e09533c030b56a9
       groups:
         - hal
     - name: hal_espressif
-      revision: d73843b864463def35d99b29e61001874151d8a6
+      revision: cbf74978350266a45edbfb4508553a3990341dd2
       path: modules/hal/espressif
       west-commands: west/west-commands.yml
       groups:
@@ -198,7 +198,7 @@ manifest:
       groups:
         - hal
     - name: hal_microchip
-      revision: f35096e9b10a002bc4f319ac22382c1abaaf6af7
+      revision: 86f3ea6b389d860332bd81ae8b97543def619395
       path: modules/hal/microchip
       groups:
         - hal
@@ -208,12 +208,12 @@ manifest:
       groups:
         - hal
     - name: hal_nuvoton
-      revision: 8f1bf948a94cf59926ea7b686985e1d6c6f954c7
+      revision: fe26f3a5b3b85fb6b61cc3f744f195e3ab391194
       path: modules/hal/nuvoton
       groups:
         - hal
     - name: hal_nxp
-      revision: 22a92524af8ff98fcfbbbdb345509b76729344b1
+      revision: cbf42f141066d999441696d12c206fc38929f3ea
       path: modules/hal/nxp
       groups:
         - hal
@@ -229,12 +229,12 @@ manifest:
         - hal
     - name: hal_realtek
       path: modules/hal/realtek
-      revision: ba2729361aaeb830434a069dcb12f5a8d4a9f22e
+      revision: 84a7fd556d95a411ee3cbf4ed29478eced58fb35
       groups:
         - hal
     - name: hal_renesas
       path: modules/hal/renesas
-      revision: c92be1e7442b01e02d0f56a3b0ee090d8d068467
+      revision: 06282060fa20cbd21d4ebbc7d46a1fc9533fd24e
       groups:
         - hal
     - name: hal_rpi_pico
@@ -248,7 +248,7 @@ manifest:
       groups:
         - hal
     - name: hal_silabs
-      revision: 12fa7580a4a5c216c33916e27e0034265154afee
+      revision: f5201210afa1319ed8dd8dbe21682bcb63b25771
       path: modules/hal/silabs
       groups:
         - hal
@@ -258,7 +258,7 @@ manifest:
       groups:
         - hal
     - name: hal_stm32
-      revision: 21d2c68bc0d38cb9f4d9183b97adb82e47fbd25e
+      revision: 4ceafbebc77571f540d2ff9957468a1bfedb41d5
       path: modules/hal/stm32
       groups:
         - hal
@@ -273,12 +273,12 @@ manifest:
       groups:
         - hal
     - name: hal_ti
-      revision: b0347dba143798dafa3b57babfb754228398e5c5
+      revision: afbcfffd393be03ca2c9b41f9ce8d94a4c2f2fbd
       path: modules/hal/ti
       groups:
         - hal
     - name: hal_wch
-      revision: 6dd313768b5f4cc69baeac4ce6e59f2038eb8ce5
+      revision: dd3855ea624b05de7e6e95584789615d2058a0f3
       path: modules/hal/wch
       groups:
         - hal
@@ -294,7 +294,7 @@ manifest:
         - hal
     - name: hostap
       path: modules/lib/hostap
-      revision: 675f62d32902201d0da15c125dd94eb7667518b0
+      revision: 849cff2b2eb3532cfa829df9003f194ba3bd1919
     - name: liblc3
       revision: 48bbd3eacd36e99a57317a0a4867002e0b09e183
       path: modules/lib/liblc3
@@ -324,12 +324,18 @@ manifest:
       revision: 85aa60d18b3d5e5588d7b247abf90198f07c8a63
       path: modules/lib/gui/lvgl
     - name: mbedtls
-      revision: c5b06d89c9c498d8fc8659ce31f7e53137b6270f
+      revision: 26158d1c012477e77765d138b26a791db917c881
       path: modules/crypto/mbedtls
       groups:
         - crypto
+    - name: mbedtls-3.6 # Required for TF-M build until we bump it to v2.3
+      repo-path: mbedtls
+      revision: 93344a458295c891f71fe31beaa3a3a8d8057790
+      path: modules/crypto/mbedtls-3.6
+      groups:
+        - crypto
     - name: mcuboot
-      revision: 9eac8cb5f4fedb3500986c5877277ef80606c4b0
+      revision: cf5810201c84d6e266aeda2abdab80854066ac08
       path: bootloader/mcuboot
       groups:
         - bootloader
@@ -338,6 +344,11 @@ manifest:
       groups:
         - debug
       revision: 5a9d6055b62edc54566d6d0034d9daec91749b98
+    - name: mldsa-native
+      revision: 5772b4f4a0105694b1203abb582273f78fa951b7
+      path: modules/crypto/mbedtls/tf-psa-crypto/drivers/pqpc/mldsa-native
+      groups:
+        - crypto
     - name: nanopb
       revision: 5499fd4c9a478f8139eeb07a82c3b4468d6067f7
       path: modules/lib/nanopb
@@ -347,7 +358,7 @@ manifest:
       groups:
         - tools
     - name: nrf_hw_models
-      revision: 2b09581c7654f4dfd38681270350c9ae6b0438a2
+      revision: 63ccab2988bf4c144b3cd324a0277e03206fa413
       path: modules/bsim_hw_models/nrf_hw_models
     - name: nrf_wifi
       revision: cebea8e27ceb91a7d4580d17db65f93669befe72
@@ -365,7 +376,7 @@ manifest:
         - debug
     - name: picolibc
       path: modules/lib/picolibc
-      revision: ca8b6ebba5226a75545e57a140443168a26ba664
+      revision: 01254932e8e81085817ed61fd858648584ffe37c
     - name: psa-arch-tests
       revision: 6e8219237435112df33bbcf37b7f5657fcfb9cff
       path: modules/tee/tf-m/psa-arch-tests
@@ -383,13 +394,18 @@ manifest:
       groups:
         - testing
         - tee
+    - name: tf-psa-crypto
+      revision: 6820f1dadc67c289d2dc63aec495519c9d589d8e
+      path: modules/crypto/mbedtls/tf-psa-crypto
+      groups:
+        - crypto
     - name: trusted-firmware-a
-      revision: 44bcc378b6ec4af8693d008f43983e488f1f5740
+      revision: 4aef38a5bf03edfa615c1f8af5a49e7065f9fb3f
       path: modules/tee/tf-a/trusted-firmware-a
       groups:
         - tee
     - name: trusted-firmware-m
-      revision: 7e8bf231496cc4d43b2fab0bc133425b47756065
+      revision: 6e2e07aa785cb69354272fcc95eb36bf85c4a9d3
       path: modules/tee/tf-m/trusted-firmware-m
       groups:
         - tee

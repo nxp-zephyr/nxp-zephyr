@@ -426,6 +426,27 @@
 			mbox-names = "tx", "rx", "zero";
 		};
 
+		test_dac_1: dac@10004000 {
+			reg = <0x10004000 0x1000>;
+			compatible = "vnd,dac";
+			status = "okay";
+			#io-channel-cells = <1>;
+		};
+
+		test_dac_2: dac@10005000 {
+			reg = <0x10005000 0x1000>;
+			compatible = "vnd,dac";
+			status = "okay";
+			#io-channel-cells = <1>;
+		};
+
+		/* there should only be one of these */
+		test_dac_outputs: dac-outputs {
+			compatible = "vnd,dac-outputs";
+			io-channels = <&test_dac_1 10>, <&test_dac_2 20>;
+			io-channel-names = "ch1", "ch2";
+		};
+
 		/* there should only be one of these */
 		test_reg: reg-holder@9999aaaa {
 			compatible = "vnd,reg-holder";
@@ -744,6 +765,28 @@
 				#size-cells = <1>;
 
 				ranges;
+			};
+		};
+
+		test-regs {
+			#address-cells = <2>;
+			#size-cells = <1>;
+
+			/* there should only be one of these */
+			test_regs_test_node: testnode@2000000 {
+				compatible = "vnd,test-foreach-reg-unique";
+				reg = <0x00 0x2000000 0x40000>,
+				      <0x00 0x2200000 0x5c00000>,
+				      <0x00 0x8400000 0x7a00000>;
+			};
+
+			test_regs_other: other@107fff9000 {
+				compatible = "vnd,test-foreach-reg";
+				reg = <0x10 0x7fff9000 0x1000>;
+			};
+
+			test_regs_empty: empty {
+				compatible = "vnd,test-foreach-reg";
 			};
 		};
 

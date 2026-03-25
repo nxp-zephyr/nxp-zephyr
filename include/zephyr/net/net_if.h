@@ -1135,6 +1135,26 @@ static inline struct net_offload *net_if_offload(struct net_if *iface)
 }
 
 /**
+ * @brief Set the IP offload plugin
+ *
+ * @param iface Network interface
+ * @param offload Offload plugin to set
+ */
+static inline void net_if_offload_set(struct net_if *iface, struct net_offload *offload)
+{
+#if defined(CONFIG_NET_OFFLOAD)
+	if (iface == NULL || iface->if_dev == NULL) {
+		return;
+	}
+
+	iface->if_dev->offload = offload;
+#else
+	ARG_UNUSED(iface);
+	ARG_UNUSED(offload);
+#endif
+}
+
+/**
  * @brief Return the socket offload status
  *
  * @param iface Network interface
@@ -1293,7 +1313,7 @@ static inline void net_if_nbr_reachability_hint(struct net_if *iface,
 /** @cond INTERNAL_HIDDEN */
 
 static inline int net_if_set_link_addr_unlocked(struct net_if *iface,
-						uint8_t *addr, uint8_t len,
+						const uint8_t *addr, uint8_t len,
 						enum net_link_type type)
 {
 	int ret;
@@ -1317,7 +1337,7 @@ static inline int net_if_set_link_addr_unlocked(struct net_if *iface,
 }
 
 int net_if_set_link_addr_locked(struct net_if *iface,
-				uint8_t *addr, uint8_t len,
+				const uint8_t *addr, uint8_t len,
 				enum net_link_type type);
 
 #if CONFIG_NET_IF_LOG_LEVEL >= LOG_LEVEL_DBG
@@ -1359,7 +1379,7 @@ extern struct net_if_addr *net_if_addr_ref(struct net_if *iface,
  * @return 0 on success
  */
 static inline int net_if_set_link_addr(struct net_if *iface,
-				       uint8_t *addr, uint8_t len,
+				       const uint8_t *addr, uint8_t len,
 				       enum net_link_type type)
 {
 #if defined(CONFIG_NET_RAW_MODE)

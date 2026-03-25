@@ -288,6 +288,11 @@ if(CONFIG_BUILD_WITH_TFM)
     )
   endif()
 
+  if(CONFIG_SOC_SERIES_PSE84)
+    include(${ZEPHYR_BASE}/soc/infineon/edge/pse84/pse84_metadata.cmake)
+    list(APPEND TFM_CMAKE_ARGS -DIFX_EPC=epc2)
+  endif()
+
   file(MAKE_DIRECTORY ${TFM_BINARY_DIR})
   add_custom_target(tfm_cmake
     DEPENDS ${TFM_BINARY_DIR}/CMakeCache.txt
@@ -305,7 +310,7 @@ if(CONFIG_BUILD_WITH_TFM)
       -DPython3_EXECUTABLE=${Python3_EXECUTABLE}
       ${TFM_CMAKE_ARGS}
       $<GENEX_EVAL:$<TARGET_PROPERTY:zephyr_property_target,TFM_CMAKE_OPTIONS>>
-      -DMBEDCRYPTO_PATH=$<IF:$<BOOL:$<TARGET_PROPERTY:zephyr_property_target,TFM_MBEDCRYPTO_PATH>>,$<TARGET_PROPERTY:zephyr_property_target,TFM_MBEDCRYPTO_PATH>,${ZEPHYR_MBEDTLS_MODULE_DIR}>
+      -DMBEDCRYPTO_PATH=$<IF:$<BOOL:$<TARGET_PROPERTY:zephyr_property_target,TFM_MBEDCRYPTO_PATH>>,$<TARGET_PROPERTY:zephyr_property_target,TFM_MBEDCRYPTO_PATH>,${ZEPHYR_MBEDTLS_3_6_MODULE_DIR}>
       -DCMSIS_PATH=${ZEPHYR_CMSIS_6_MODULE_DIR}
       ${ZEPHYR_TRUSTED_FIRMWARE_M_MODULE_DIR}
     WORKING_DIRECTORY ${TFM_BINARY_DIR}
@@ -418,10 +423,24 @@ if(CONFIG_BUILD_WITH_TFM)
     ${TFM_INTERFACE_INCLUDE_DIR}/crypto_keys
     ${ZEPHYR_BASE}/modules/mbedtls/configs
     )
-  # Pass down the MbedTLS configuration file to use.
-  target_compile_definitions(tfm_api PUBLIC
-    MBEDTLS_CONFIG_FILE="${CONFIG_MBEDTLS_CFG_FILE}"
-    )
+  # MBEDTLS_CONFIG_FILE and TF_PSA_CRYPTO_CONFIG_FILE are exposed by mbedTLS interface
+  # library. Here we need to override MBEDTLS_CONFIG_FILE because when building TF-M
+  # interface it relies on Mbed TLS 3.6.5 includes files and there MBEDTLS_CONFIG_FILE
+  # had both TLS/X.509 and crypto. We're also manually specifying MBEDTLS_PSA_CRYPTO_CONFIG_FILE
+  # because that doesn't exist in TF-PSA-Crypto anymore.
+  # Note: overriding is done by undefining + defining, because otherwise CMake would emit
+  #       a warning for variable re-definition.
+  target_compile_options(tfm_api PRIVATE
+    -UMBEDTLS_CONFIG_FILE
+    -UTF_PSA_CRYPTO_CONFIG_FILE
+    -DMBEDTLS_CONFIG_FILE="${CONFIG_TF_PSA_CRYPTO_CFG_FILE}"
+    -DMBEDTLS_PSA_CRYPTO_CONFIG_FILE="config-psa.h"
+  )
+
+  # Add interface headers to zephyr_interface.
+  zephyr_include_directories(
+    ${TFM_INTERFACE_INCLUDE_DIR}
+  )
 
   zephyr_library_link_libraries(
     ${TFM_INTERFACE_LIB_DIR}/s_veneers.o
@@ -593,11 +612,19 @@ if(CONFIG_BUILD_WITH_TFM)
   endif()
 
   if(NOT CONFIG_TFM_BL2)
+    # Default: use unsigned TF-M secure image for merging
+    set(TFM_S_MERGE_HEX_FILE $<TARGET_PROPERTY:tfm,TFM_S_HEX_FILE>)
+
+    if(CONFIG_SOC_SERIES_PSE84)
+      pse84_add_metadata_secure_hex(${TFM_S_HEX_FILE} ${S_SIGNED_HEX_FILE})
+      set(TFM_S_MERGE_HEX_FILE ${S_SIGNED_HEX_FILE})
+    endif()
+
     # Merge tfm_s and zephyr (NS) image to a single binary.
     set_property(GLOBAL APPEND PROPERTY extra_post_build_commands
       COMMAND ${PYTHON_EXECUTABLE} ${ZEPHYR_BASE}/scripts/build/mergehex.py
         -o ${MERGED_HEX_FILE}
-        $<TARGET_PROPERTY:tfm,TFM_S_HEX_FILE>
+        ${TFM_S_MERGE_HEX_FILE}
         ${NS_HEX_APP_FILE}
     )
 

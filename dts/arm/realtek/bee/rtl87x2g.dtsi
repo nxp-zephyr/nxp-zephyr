@@ -100,6 +100,11 @@
 		};
 	};
 
+	bee_bt_hci: bee_bt_hci {
+		compatible = "realtek,bee-bt-hci";
+		status = "disabled";
+	};
+
 	soc {
 		fmc: flash-controller@40022000 {
 			compatible = "realtek,rtl87x2g-flash-controller";
@@ -372,6 +377,14 @@
 				compatible = "realtek,bee-counter-timer";
 				status = "disabled";
 			};
+		};
+
+		keyscan: keyscan@40037000 {
+			compatible = "realtek,bee-keyscan";
+			reg = <0x40037000 0x34>;
+			interrupts = <58 0>;
+			clocks = <&cctl APB_CLK(KEYSCAN)>;
+			status = "disabled";
 		};
 	};
 };

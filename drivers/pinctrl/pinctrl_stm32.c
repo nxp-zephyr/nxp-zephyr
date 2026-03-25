@@ -143,32 +143,6 @@ static int stm32_pins_remap(const pinctrl_soc_pin_t *pins, uint8_t pin_cnt)
 
 #endif /* DT_HAS_COMPAT_STATUS_OKAY(st_stm32f1_pinctrl) */
 
-#if DT_HAS_COMPAT_STATUS_OKAY(st_stm32n6_pinctrl)
-static void apply_iosync_configuration(
-	const struct device *port_device, uint32_t pin, uint32_t pincfg)
-{
-	const struct gpio_stm32_config *gpio_cfg = port_device->config;
-	GPIO_TypeDef *gpio_reg = gpio_cfg->base;
-	uint32_t piocfgr = (pincfg >> STM32_IORETIME_ADVCFGR_SHIFT) & STM32_IORETIME_ADVCFGR_MASK;
-	uint32_t delayr = (pincfg >> STM32_IODELAY_LENGTH_SHIFT) & STM32_IODELAY_LENGTH_MASK;
-	uint32_t pinbit = BIT(pin);
-
-	/**
-	 * Thanks to clever encoding, we don't have to check whether the I/O retiming
-	 * is to be enabled or not; all we need to do is write to the registers where
-	 * everything will fall in place nicely. This can obviously be updated for
-	 * new hardware, if required...
-	 */
-	if (pin <= 7) {
-		LL_GPIO_SetDelayPin_0_7(gpio_reg, pinbit, delayr);
-		LL_GPIO_SetPIOControlPin_0_7(gpio_reg, pinbit, piocfgr);
-	} else {
-		LL_GPIO_SetDelayPin_8_15(gpio_reg, pinbit, delayr);
-		LL_GPIO_SetPIOControlPin_8_15(gpio_reg, pinbit, piocfgr);
-	}
-}
-#endif /* DT_HAS_COMPAT_STATUS_OKAY(st_stm32n6_pinctrl) */
-
 #ifdef CONFIG_SOC_SERIES_STM32F1X
 #define IS_GPIO_OUT GPIO_OUT
 #else
@@ -180,7 +154,7 @@ int pinctrl_configure_pins(const pinctrl_soc_pin_t *pins, uint8_t pin_cnt,
 {
 	const struct device *port;
 	uint32_t mux, func, line;
-	uint32_t pin_cgf = 0;
+	uint32_t pin_cfg = 0;
 	int ret = 0, cfg_ret;
 
 	ARG_UNUSED(reg);
@@ -199,30 +173,30 @@ int pinctrl_configure_pins(const pinctrl_soc_pin_t *pins, uint8_t pin_cnt,
 		uint32_t pupd;
 
 		if (STM32_DT_PINMUX_FUNC(mux) == ALTERNATE) {
-			pin_cgf = pins[i].pincfg | STM32_MODE_OUTPUT | STM32_CNF_ALT_FUNC;
+			pin_cfg = pins[i].pincfg | STM32_MODE_OUTPUT | STM32_CNF_ALT_FUNC;
 		} else if (STM32_DT_PINMUX_FUNC(mux) == ANALOG) {
-			pin_cgf = pins[i].pincfg | STM32_MODE_INPUT | STM32_CNF_IN_ANALOG;
+			pin_cfg = pins[i].pincfg | STM32_MODE_INPUT | STM32_CNF_IN_ANALOG;
 		} else if (STM32_DT_PINMUX_FUNC(mux) == GPIO_IN) {
-			pin_cgf = pins[i].pincfg | STM32_MODE_INPUT;
-			pupd = pin_cgf & (STM32_PUPD_MASK << STM32_PUPD_SHIFT);
+			pin_cfg = pins[i].pincfg | STM32_MODE_INPUT;
+			pupd = pin_cfg & (STM32_PUPD_MASK << STM32_PUPD_SHIFT);
 			if (pupd == STM32_PUPD_NO_PULL) {
-				pin_cgf = pin_cgf | STM32_CNF_IN_FLOAT;
+				pin_cfg = pin_cfg | STM32_CNF_IN_FLOAT;
 			} else {
-				pin_cgf = pin_cgf | STM32_CNF_IN_PUPD;
+				pin_cfg = pin_cfg | STM32_CNF_IN_PUPD;
 			}
 		} else if (STM32_DT_PINMUX_FUNC(mux) == GPIO_OUT) {
-			pin_cgf = pins[i].pincfg | STM32_MODE_OUTPUT | STM32_CNF_GP_OUTPUT;
+			pin_cfg = pins[i].pincfg | STM32_MODE_OUTPUT | STM32_CNF_GP_OUTPUT;
 		} else {
 			/* Not supported */
 			__ASSERT_NO_MSG(STM32_DT_PINMUX_FUNC(mux));
 		}
 #else
 		if (STM32_DT_PINMUX_FUNC(mux) < STM32_ANALOG) {
-			pin_cgf = pins[i].pincfg | STM32_MODER_ALT_MODE;
+			pin_cfg = pins[i].pincfg | STM32_MODER_ALT_MODE;
 		} else if (STM32_DT_PINMUX_FUNC(mux) == STM32_ANALOG) {
-			pin_cgf = STM32_MODER_ANALOG_MODE;
+			pin_cfg = STM32_MODER_ANALOG_MODE;
 		} else if (STM32_DT_PINMUX_FUNC(mux) == STM32_GPIO) {
-			pin_cgf = pins[i].pincfg;
+			pin_cfg = pins[i].pincfg;
 		} else {
 			/* Not supported */
 			__ASSERT_NO_MSG(STM32_DT_PINMUX_FUNC(mux));
@@ -241,13 +215,13 @@ int pinctrl_configure_pins(const pinctrl_soc_pin_t *pins, uint8_t pin_cnt,
 		line = STM32_DT_PINMUX_LINE(mux);
 		func = STM32_DT_PINMUX_FUNC(mux);
 
-		cfg_ret = stm32_gpioport_configure_pin(port, line, pin_cgf, func);
+		cfg_ret = stm32_gpioport_configure_pin(port, line, pin_cfg, func);
 
 		if (cfg_ret >= 0 && func == IS_GPIO_OUT) {
 			/* Apply output level configuration */
 			const struct gpio_stm32_config *cfg = port->config;
 			GPIO_TypeDef *gpio = cfg->base;
-			uint32_t gpio_out = pin_cgf & (STM32_ODR_MASK << STM32_ODR_SHIFT);
+			uint32_t gpio_out = pin_cfg & (STM32_ODR_MASK << STM32_ODR_SHIFT);
 
 			if (gpio_out == STM32_ODR_1) {
 				stm32_reg_write(&gpio->BSRR, BIT(line));
@@ -260,12 +234,6 @@ int pinctrl_configure_pins(const pinctrl_soc_pin_t *pins, uint8_t pin_cnt,
 #endif /* CONFIG_SOC_SERIES_STM32F1X */
 			}
 		}
-
-#if DT_HAS_COMPAT_STATUS_OKAY(st_stm32n6_pinctrl)
-		if (cfg_ret >= 0) {
-			apply_iosync_configuration(port, line, pins[i].pincfg);
-		}
-#endif
 
 		ret = pm_device_runtime_put(port);
 		if (ret < 0) {

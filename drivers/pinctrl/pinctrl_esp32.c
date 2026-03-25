@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022 Espressif Systems (Shanghai) Co., Ltd.
+ * Copyright (c) 2022-2026 Espressif Systems (Shanghai) Co., Ltd.
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -9,7 +9,9 @@
 #include <hal/rtc_io_hal.h>
 #include <soc/gpio_sig_map.h>
 
+#include <power.h>
 #include <soc.h>
+#include <zephyr/kernel.h>
 #include <zephyr/drivers/pinctrl.h>
 #include <zephyr/drivers/pinctrl/pinctrl_esp32_common.h>
 
@@ -24,7 +26,8 @@
 #define in in.data
 #define out_w1ts out_w1ts.val
 #define out_w1tc out_w1tc.val
-#elif defined(CONFIG_SOC_SERIES_ESP32C6) || defined(CONFIG_SOC_SERIES_ESP32H2)
+#elif defined(CONFIG_SOC_SERIES_ESP32C5) || defined(CONFIG_SOC_SERIES_ESP32C6) ||                  \
+	defined(CONFIG_SOC_SERIES_ESP32H2)
 /* gpio structs in esp32c6/h2 are also different */
 #define out out.out_data_orig
 #define in in.in_data_next
@@ -221,6 +224,10 @@ static int esp32_pin_configure(const uint32_t pin_mux, const uint32_t pin_cfg)
 		break;
 	}
 
+	if (ESP32_PIN_SLEEP_HOLD(pin_cfg) == ESP32_PIN_SLEEP_HOLD_EN) {
+		flags |= ESP32_SLEEP_HOLD_FLAG;
+	}
+
 	if (flags & ESP32_PIN_OUT_HIGH_FLAG) {
 		if (ESP32_PORT_IDX(pin_num) == 0) {
 			gpio_dev_t *const gpio_dev =
@@ -258,6 +265,17 @@ static int esp32_pin_configure(const uint32_t pin_mux, const uint32_t pin_cfg)
 	if (flags & ESP32_DIR_INP_FLAG) {
 		esp_rom_gpio_matrix_in(pin_num, sig_in, 0);
 	}
+
+#if CONFIG_PM
+	bool hold_en = (flags & ESP32_SLEEP_HOLD_FLAG);
+
+	int key = irq_lock();
+
+	/* Enable pin pad state hold while in low power mode */
+	esp32_sleep_gpio_hold_config(pin_num, hold_en);
+
+	irq_unlock(key);
+#endif
 
 	return 0;
 }

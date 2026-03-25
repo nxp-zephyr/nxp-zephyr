@@ -126,14 +126,6 @@
 			#size-cells = <1>;
 			ranges = <0x0 0x20000000 DT_SIZE_K(511)>;
 		};
-
-		cpuflpr_sram: memory@20067c00 {
-			compatible = "mmio-sram";
-			reg = <0x20067c00 DT_SIZE_K(96)>;
-			#address-cells = <1>;
-			#size-cells = <1>;
-			ranges = <0x0 0x20067c00 DT_SIZE_K(96)>;
-		};
 #endif
 
 #ifdef USE_NON_SECURE_ADDRESS_MAP
@@ -364,6 +356,7 @@
 				reg = <0xc6000 0x1000>;
 				interrupts = <198 NRF_DEFAULT_IRQ_PRIORITY>;
 				easydma-maxcnt-bits = <16>;
+				clock-tolerance-percent = <6>;
 				status = "disabled";
 				zephyr,pm-device-runtime-auto;
 			};
@@ -403,6 +396,7 @@
 				reg = <0xc7000 0x1000>;
 				interrupts = <199 NRF_DEFAULT_IRQ_PRIORITY>;
 				easydma-maxcnt-bits = <16>;
+				clock-tolerance-percent = <6>;
 				status = "disabled";
 				zephyr,pm-device-runtime-auto;
 			};
@@ -442,6 +436,7 @@
 				reg = <0xc8000 0x1000>;
 				interrupts = <200 NRF_DEFAULT_IRQ_PRIORITY>;
 				easydma-maxcnt-bits = <16>;
+				clock-tolerance-percent = <6>;
 				status = "disabled";
 				zephyr,pm-device-runtime-auto;
 			};
@@ -663,6 +658,7 @@
 				reg = <0xed000 0x1000>;
 				interrupts = <237 NRF_DEFAULT_IRQ_PRIORITY>;
 				easydma-maxcnt-bits = <16>;
+				clock-tolerance-percent = <6>;
 				status = "disabled";
 				zephyr,pm-device-runtime-auto;
 			};
@@ -702,6 +698,7 @@
 				reg = <0xee000 0x1000>;
 				interrupts = <238 NRF_DEFAULT_IRQ_PRIORITY>;
 				easydma-maxcnt-bits = <16>;
+				clock-tolerance-percent = <6>;
 				status = "disabled";
 				zephyr,pm-device-runtime-auto;
 			};
@@ -756,6 +753,7 @@
 				reg = <0x104000 0x1000>;
 				interrupts = <260 NRF_DEFAULT_IRQ_PRIORITY>;
 				easydma-maxcnt-bits = <16>;
+				clock-tolerance-percent = <6>;
 				status = "disabled";
 				zephyr,pm-device-runtime-auto;
 			};
@@ -897,11 +895,11 @@
 		rram_controller: rram-controller@5004e000 {
 			compatible = "nordic,rram-controller";
 			reg = <0x5004e000 0x1000>;
+			ranges;
 			interrupts = <78 NRF_DEFAULT_IRQ_PRIORITY>;
 			#address-cells = <1>;
 			#size-cells = <1>;
 
-#ifdef USE_NON_SECURE_ADDRESS_MAP
 			cpuapp_rram: rram@0 {
 				compatible = "soc-nv-flash";
 				reg = <0x0 DT_SIZE_K(2036)>;
@@ -911,27 +909,6 @@
 				#address-cells = <1>;
 				#size-cells = <1>;
 			};
-#else
-			cpuapp_rram: rram@0 {
-				compatible = "soc-nv-flash";
-				reg = <0x0 DT_SIZE_K(1940)>;
-				ranges = <0x0 0x0 DT_SIZE_K(1940)>;
-				erase-block-size = <4096>;
-				write-block-size = <16>;
-				#address-cells = <1>;
-				#size-cells = <1>;
-			};
-
-			cpuflpr_rram: rram@1e5000 {
-				compatible = "soc-nv-flash";
-				reg = <0x1e5000 DT_SIZE_K(96)>;
-				ranges = <0x0 0x1e5000 DT_SIZE_K(96)>;
-				erase-block-size = <4096>;
-				write-block-size = <16>;
-				#address-cells = <1>;
-				#size-cells = <1>;
-			};
-#endif
 		};
 
 		nrf_mpc: memory@50041000 {
