@@ -62,4 +62,15 @@ config ENTROPY_HAS_DRIVER
 	  This is an option to be enabled by individual entropy driver
 	  to signal that there is a true entropy driver.
 
+config ENTROPY_NEEDS_POST_PROCESSING
+	bool
+	help
+	  Hidden option to signal that the entropy driver provides data that
+	  needs post processing. Reasons for this might be that data is not
+	  truly random distributed or that the entropy source is not capable
+	  of providing large amount of random values in a relatively short
+	  amount of time.
+	  Post processing includes crypto algorithms such CTR-DRBG or
+	  HMAC-DRBG, for example.
+
 endif
