@@ -300,7 +300,7 @@ struct uarte_nrfx_data {
 #define UARTE_CFG_FLAG_VOLATILE_BAUDRATE BIT(5)
 
 /* Formula for getting the baudrate settings is following:
- * 2^12 * (2^20 / (f_PCLK / desired_baudrate)) where f_PCLK is a frequency that
+ * 2^12 * floor(2^20 / round(f_PCLK / desired_baudrate)) where f_PCLK is a frequency that
  * drives the UARTE.
  *
  * @param f_pclk Frequency of the clock that drives the peripheral.
@@ -308,7 +308,8 @@ struct uarte_nrfx_data {
  *
  * @return Baudrate setting to be written to the BAUDRATE register
  */
-#define UARTE_GET_CUSTOM_BAUDRATE(f_pclk, baudrate) ((BIT(20) / (f_pclk / baudrate)) << 12)
+#define UARTE_GET_CUSTOM_BAUDRATE(f_pclk, baudrate)                                                \
+	((BIT(20) / DIV_ROUND_CLOSEST(f_pclk, baudrate)) << 12)
 
 /* Macro for converting numerical baudrate to register value. It is convenient
  * to use this approach because for constant input it can calculate nrf setting
@@ -1494,7 +1495,7 @@ static void timer_isr(const void *arg)
 		usr_buf_complete(dev);
 	}
 
-	/* Must be after user buf complet CC handling. */
+	/* Must be after user buf complete CC handling. */
 	if (timer_ch_evt_check_clear(cfg->timer_regs, UARTE_TIMER_BUF_SWITCH_CH)) {
 		bounce_buf_switch(dev);
 	}
@@ -1575,11 +1576,11 @@ static void cbwt_rx_enable(const struct device *dev, bool with_timeout)
 static int cbwt_uarte_async_init(const struct device *dev)
 {
 	const struct uarte_nrfx_config *cfg = dev->config;
-	struct uarte_async_rx_cbwt *cbwt_data = cfg->cbwt_data;
 	static const uint32_t rx_int_mask = NRF_UARTE_INT_ERROR_MASK |
 						NRF_UARTE_INT_RXTO_MASK;
-
 #ifdef CONFIG_UART_USE_RUNTIME_CONFIGURE
+	struct uarte_async_rx_cbwt *cbwt_data = cfg->cbwt_data;
+
 	cbwt_data->bounce_buf_swap_len = cfg->bounce_buf_swap_len;
 #endif
 

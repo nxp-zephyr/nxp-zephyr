@@ -270,6 +270,7 @@ ARM64 arch:
   collaborators:
     - npitre
     - JiafeiPan
+    - carlocaione
   files:
     - arch/arm64/
     - include/zephyr/arch/arm64/
@@ -802,6 +803,7 @@ Build Dashboard:
     - grahamroff-dev
   collaborators:
     - mbolivar
+    - kartben
   files:
     - scripts/dashboard/
   labels:
@@ -1595,6 +1597,8 @@ Documentation Infrastructure:
   status: maintained
   maintainers:
     - teburd
+  collaborators:
+    - mcuxted
   files:
     - drivers/dma/
     - tests/drivers/dma/
@@ -2532,13 +2536,19 @@ Documentation Infrastructure:
     - drivers.stepper
 
 "Drivers: Syscon":
-  status: odd fixes
+  status: maintained
+  maintainers:
+    - carlocaione
+  collaborators:
+    - pdgendt
   files:
     - include/zephyr/drivers/syscon.h
     - drivers/syscon/
     - tests/drivers/syscon/
   tests:
     - drivers.syscon
+  labels:
+    - "area: Syscon"
 
 "Drivers: System timer":
   status: maintained
@@ -2969,7 +2979,8 @@ Heap Management:
 IPC:
   status: maintained
   maintainers:
-    - doki-nordic
+    - iuliana-prodan
+    - anangl
   collaborators:
     - arnopo
   files:
@@ -3043,6 +3054,8 @@ Input:
   status: maintained
   maintainers:
     - fabiobaltieri
+  collaborators:
+    - mcuxted
   files:
     - doc/services/input/
     - drivers/input/
@@ -4800,9 +4813,11 @@ Realtek Fingerprint Platforms:
 Release:
   status: maintained
   maintainers:
-    - nashif
+    - MaureenHelm
+    - stephanosio
   collaborators:
     - kartben
+    - nashif
   files:
     - VERSION
     - scripts/dump_bugs_pickle.py
@@ -4810,21 +4825,10 @@ Release:
     - LICENSE
     - LICENSES/
     - scripts/release/
-  labels:
-    - "Release"
-
-Release Notes:
-  status: maintained
-  maintainers:
-    - MaureenHelm
-    - stephanosio
-  collaborators:
-    - kartben
-  files:
     - doc/releases/migration-guide-*
     - doc/releases/release-notes-*
   labels:
-    - "Release Notes"
+    - "Release"
 
 Renesas R-Car Platforms:
   status: maintained
@@ -5200,10 +5204,10 @@ SiFli SF32LB Platforms:
   status: maintained
   maintainers:
     - gmarull
+    - HalfSweet
   collaborators:
     - cameled
     - ck-telecom
-    - HalfSweet
   files:
     - boards/sifli/
     - drivers/*/*sf32lb*
@@ -6147,6 +6151,7 @@ West:
     - nika-nordic
     - nordic-krch
     - carlescufi
+    - hakonfam
   collaborators:
     - kl-cruz
     - magp-nordic
@@ -6155,6 +6160,11 @@ West:
     - adamkondraciuk
     - lstnl
     - rlubos
+    - "57300"
+    - jonathannilsen
+    - karstenkoenig
+    - SebastianBoe
+    - kyberdin
   files:
     - modules/hal_nordic/
   labels:
@@ -6252,8 +6262,10 @@ West:
   status: maintained
   maintainers:
     - gmarull
+    - HalfSweet
   collaborators:
     - cameled
+    - ck-telecom
   files:
     - modules/hal_sifli/
   labels:
