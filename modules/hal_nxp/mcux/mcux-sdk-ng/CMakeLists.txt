@@ -1,4 +1,4 @@
-# Copyright 2025 NXP
+# Copyright 2025-2026 NXP
 #
 # SPDX-License-Identifier: Apache-2.0
 
@@ -9,6 +9,8 @@ if((${MCUX_DEVICE} MATCHES "RW61") AND (NOT DEFINED CONFIG_MINIMAL_LIBC))
   # This will avoid issues with unaligned access to peripheral RAM regions
   # caused by the memcpy implementation in newlib
   zephyr_library_sources(${ZEPHYR_CURRENT_MODULE_DIR}/mcux/mcux-sdk-ng/components/misc_utilities/fsl_memcpy.S)
+  # Use optimized memset for better performance
+  zephyr_library_sources(${ZEPHYR_CURRENT_MODULE_DIR}/mcux/mcux-sdk-ng/components/misc_utilities/fsl_memset.S)
 endif()
 
 if(CONFIG_BT_H4_NXP_CTLR AND CONFIG_BT_CLASSIC)
