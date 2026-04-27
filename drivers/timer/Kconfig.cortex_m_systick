@@ -42,6 +42,14 @@ config CORTEX_M_SYSTICK_64BIT_CYCLE_COUNTER
 	  This is set to y by default when the hardware clock is fast enough
 	  to wrap sys_clock_cycle_get_32() in about a minute or less.
 
+config CORTEX_M_SYSTICK_INTERRUPT_PRIORITY
+	int "Cortex-M SYSTICK timer interrupt priority"
+	depends on CORTEX_M_SYSTICK
+	default 0
+	help
+	  This option specifies the interrupt priority used by the
+	  Cortex-M SYSTICK timer.
+
 if CORTEX_M_SYSTICK
 
 # Deprecated SysTick-specific Kconfig symbols.
