@@ -43,6 +43,7 @@ this will place data and bss inside SRAM2.
 
 import argparse
 import glob
+import os
 import re
 import sys
 import warnings
@@ -564,11 +565,14 @@ def gen_all_obj_files(searchpath):
 
 # return the absolute path for the object file.
 def get_obj_filename(all_obj_files, filename):
+    # Normalize the filename to resolve '.' and '..' directories
+    filepath = Path(os.path.normpath(filename))
+
     # get the object file name which is almost always pended with .obj
-    obj_filename = filename.split("/")[-1] + ".obj"
+    obj_filename = filepath.name + ".obj"
 
     for obj_file in all_obj_files:
-        if obj_file.name == obj_filename and filename.split("/")[-2] in obj_file.parent.name:
+        if obj_file.name == obj_filename and filepath.parent.name in obj_file.parent.name:
             return str(obj_file)
 
 
