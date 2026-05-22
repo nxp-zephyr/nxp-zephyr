@@ -558,23 +558,108 @@ def parse_args():
     parser.add_argument("-v", "--verbose", action="count", default=0, help="Verbose Output")
     args = parser.parse_args()
 
+def gen_all_obj_files_dict(searchpath):
+    obj_files_dict = defaultdict(list)
 
-def gen_all_obj_files(searchpath):
-    return list(Path(searchpath).rglob('*.o')) + list(Path(searchpath).rglob('*.obj'))
+    all_obj_files = list(Path(searchpath).rglob('*.o')) + list(Path(searchpath).rglob('*.obj'))
 
+    for obj_file in all_obj_files:
+        obj_files_dict[obj_file.name].append(obj_file)
+
+    # Convert lists to tuples (immutable) to prevent accidental modification by downstream consumers
+    return {filename: tuple(paths) for filename, paths in obj_files_dict.items()}
+
+# Heuristic: limit to 8 parent levels for matching
+MAX_PARENT_DEPTH = 8
+
+def count_matching_parents(filepath, candidate):
+    """Count how many parent folders match between filepath and candidate"""
+    filepath_parents = list(filepath.parents)[:MAX_PARENT_DEPTH]
+    candidate_parents = list(candidate.parents)[:MAX_PARENT_DEPTH]
+
+    match_count = 0
+    # Compare parent names from innermost to outermost and stop
+    # on first mismatch for more accurate hierarchical matching
+    for fp_parent, cp_parent in zip(filepath_parents, candidate_parents):
+        if fp_parent.name == cp_parent.name and fp_parent.name:
+            match_count += 1
+        else:
+            break
+
+    return match_count
 
 # return the absolute path for the object file.
-def get_obj_filename(all_obj_files, filename):
+def get_obj_filename(all_obj_files_dict, filename):
     # Normalize the filename to resolve '.' and '..' directories
     filepath = Path(os.path.normpath(filename))
 
-    # get the object file name which is almost always pended with .obj
+    # get the object file name which is almost always appended with .obj
     obj_filename = filepath.name + ".obj"
 
-    for obj_file in all_obj_files:
-        if obj_file.name == obj_filename and filepath.parent.name in obj_file.parent.name:
-            return str(obj_file)
+    # Check if obj_filename exists as a key in the dictionary
+    if obj_filename not in all_obj_files_dict:
+        return None
 
+    candidates = all_obj_files_dict[obj_filename]
+
+    # Filter candidates: filepath.parent.name must be substring of candidate's parent name
+    valid_candidates = [
+        candidate for candidate in candidates
+        if filepath.parent.name in candidate.parent.name
+    ]
+
+    if not valid_candidates:
+        return None
+
+    if len(valid_candidates) == 1:
+        return str(valid_candidates[0])
+
+    # Multiple candidates: find best match based on parent folder hierarchy
+    # Find candidate with highest number of matching parents
+    candidate_scores = [(c, count_matching_parents(filepath, c)) for c in valid_candidates]
+    max_score = max(score for _, score in candidate_scores)
+
+    best_candidates = [c for c, score in candidate_scores if score == max_score]
+
+    if len(best_candidates) > 1:
+        # Multiple candidates with same score: choose the one with shortest path
+        # Longer paths have better chance to match other filenames more specifically
+        best_candidate = min(best_candidates, key=lambda c: len(c.parents))
+
+        # Log ambiguous match for later reporting
+        ambiguous_matches.append({
+            'filename': filename,
+            'candidates': best_candidates,
+            'selected': best_candidate
+        })
+
+        return str(best_candidate)
+
+    return str(best_candidates[0])
+
+def write_relocation_log(input_file_path):
+    """Write ambiguous matches to relocation_err.log and warn user once"""
+    if not ambiguous_matches:
+        return
+
+    # Get directory of input file
+    log_dir = Path(input_file_path).parent
+    log_file = log_dir / "relocation_err.log"
+
+    with open(log_file, 'w') as f:
+        f.write("Relocation Ambiguous Matches Report\n")
+        f.write("=" * 80 + "\n\n")
+
+        for i, match in enumerate(ambiguous_matches, 1):
+            f.write(f"[{i}] File: {match['filename']}\n")
+            f.write(f"    Multiple candidates found:\n")
+            for candidate in match['candidates']:
+                marker = " (SELECTED)" if candidate == match['selected'] else ""
+                f.write(f"      - {str(candidate)}{marker}\n")
+            f.write("\n")
+
+    # Print single message with log file path
+    print(f"Found {len(ambiguous_matches)} ambiguous object file matches. See details in: {log_file}")
 
 # Extracts all possible components for the input string:
 # <mem_region>[\ :program_header]:<flag_1>[;<flag_2>...]:<file_1>[;<file_2>...][,filter]
@@ -653,13 +738,14 @@ def create_dict_wrt_mem():
 
     return rel_dict, phdrs
 
-
 def main():
     global mpu_align
+    global ambiguous_matches
     mpu_align = {}
+    ambiguous_matches = []
     parse_args()
     searchpath = args.directory
-    all_obj_files = gen_all_obj_files(searchpath)
+    all_obj_files_dict = gen_all_obj_files_dict(searchpath)
     linker_file = args.output
     sram_data_linker_file = args.output_sram_data
     sram_bss_linker_file = args.output_sram_bss
@@ -676,7 +762,7 @@ def main():
         full_list_of_sections: dict[SectionKind, list[OutputSection]] = defaultdict(list)
 
         for filename, symbol_filter in files:
-            obj_filename = get_obj_filename(all_obj_files, filename)
+            obj_filename = get_obj_filename(all_obj_files_dict, filename)
             # the obj file wasn't found. Probably not compiled.
             if not obj_filename:
                 continue
@@ -691,6 +777,9 @@ def main():
         for region, section_category_map in sections_by_category.items():
             for category, sections in section_category_map.items():
                 complete_list_of_sections[region][category].extend(sections)
+
+    # Write relocation log if there were ambiguous matches
+    write_relocation_log(args.input_rel_dict.name)
 
     generate_linker_script(
         linker_file, sram_data_linker_file, sram_bss_linker_file, complete_list_of_sections, phdrs
