@@ -603,6 +603,33 @@ static int cmd_write(const struct shell *sh, size_t argc, char **argv)
 	return 0;
 }
 
+static int cmd_echo(const struct shell *sh, size_t argc, char **argv)
+{
+	char path[MAX_PATH_LEN];
+	struct fs_file_t file;
+	int err;
+
+	create_abs_path(argv[1], path, sizeof(path));
+
+	fs_file_t_init(&file);
+	err = fs_open(&file, path, FS_O_CREATE | FS_O_WRITE | FS_O_TRUNC);
+	if (err != 0) {
+		shell_error(sh, "Failed to open %s (%d)", path, err);
+		return -EIO;
+	}
+
+	err = fs_write(&file, argv[2], strlen(argv[2]));
+	if (err < 0) {
+		shell_error(sh, "Failed to write %s (%d)", path, err);
+		fs_close(&file);
+		return -EIO;
+	}
+
+	fs_close(&file);
+
+	return 0;
+}
+
 #ifdef CONFIG_FILE_SYSTEM_SHELL_TEST_COMMANDS
 const static uint8_t speed_types[][4] = {"B", "KiB", "MiB", "GiB"};
 const static uint32_t speed_divisor = 1024;
@@ -946,6 +973,8 @@ SHELL_STATIC_SUBCMD_SET_CREATE(sub_fs,
 		      cmd_trunc, 2, 255),
 	SHELL_CMD_ARG(write, NULL, SHELL_HELP("Write file", "<path> <data> [<data> ...]"),
 		      cmd_write, 3, 255),
+	SHELL_CMD_ARG(echo, NULL, SHELL_HELP("Echo to file", "<path> <string>"),
+		      cmd_echo, 3, 0),
 #ifdef CONFIG_FILE_SYSTEM_SHELL_TEST_COMMANDS
 	SHELL_CMD_ARG(read_test, NULL, SHELL_HELP("Read file test", "<path> <repeat>"),
 		      cmd_read_test, 3, 0),
