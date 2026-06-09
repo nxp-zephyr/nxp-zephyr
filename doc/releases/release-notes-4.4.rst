@@ -26,6 +26,26 @@
 
 .. _zephyr_4.4:
 
+.. _zephyr_4.4.1:
+
+Zephyr 4.4.1
+############
+
+Security Vulnerability Related
+******************************
+
+* :cve:`2026-7656` Under embargo until 2026-06-25
+
+* :cve:`2026-8718` Under embargo until 2026-08-08
+
+* :cve:`2026-9263` Under embargo until 2026-08-28
+
+* :cve:`2026-10666` Under embargo until 2026-07-12
+
+* :cve:`2026-10673` Under embargo until 2026-07-15
+
+.. _zephyr_4.4.0:
+
 Zephyr 4.4.0
 ############
 
@@ -105,6 +125,12 @@ Major enhancements with this release include:
   - The new :ref:`ztest benchmarking framework <ztest_benchmarking>` provides a standardized way to
     create cycle-accurate benchmarks, with automated data collection, overhead compensation, and
     statistical reporting.
+
+**Bluetooth LE Host qualification**
+  This release includes a successfully qualified Bluetooth Low Energy (LE) Host stack, aligned with
+  Bluetooth Core Specification 6.2. The scope of qualification covered core components (GAP, ATT,
+  GATT, L2CAP, SM) and Device Information Service (DIS). A qualified listing and corresponding
+  Design Number (DN) are available here: https://qualification.bluetooth.com/ListingDetails/332380
 
 **Expanded board support**
   This release adds support for 121 :ref:`new boards <boards_added_in_zephyr_4_4>` and 31
