@@ -28,6 +28,7 @@ extern void imxrt118x_trdc_enable_all_access(void);
 
 LOG_MODULE_REGISTER(soc, CONFIG_SOC_LOG_LEVEL);
 
+#if defined(CONFIG_CPU_CORTEX_M33) || !defined(CONFIG_SECOND_CORE_MCUX)
 /*
  * RT118x ELE requires ping every 24 hours, which is mandatory,
  * otherwise soc may reset.
@@ -78,6 +79,7 @@ static int ele_ping_timer_init(void)
 
 /* Initialize ELE ping timer at POST_KERNEL level to ensure kernel services are available */
 SYS_INIT(ele_ping_timer_init, POST_KERNEL, CONFIG_KERNEL_INIT_PRIORITY_DEFAULT);
+#endif /* CONFIG_CPU_CORTEX_M33 || !CONFIG_SECOND_CORE_MCUX */
 
 #if defined(CONFIG_NXP_IMXRT_BOOT_HEADER) && defined(CONFIG_CPU_CORTEX_M33)
 #include <fsl_flexspi_nor_boot.h>
@@ -162,7 +164,8 @@ const __imx_boot_container_section container boot_header = {
 #endif /* defined(CONFIG_CM7_BOOT_FROM_FLASH) */
 #endif /* (defined(CONFIG_SECOND_CORE_MCUX) && defined(CONFIG_CPU_CORTEX_M33)) */
 
-#ifdef CONFIG_INIT_ARM_PLL
+#if defined(CONFIG_INIT_ARM_PLL) && \
+	(defined(CONFIG_CPU_CORTEX_M33) || !defined(CONFIG_SECOND_CORE_MCUX))
 static const clock_arm_pll_config_t armPllConfig_BOARD_BootClockRUN = {
 	/* Post divider, 0 - DIV by 2, 1 - DIV by 4, 2 - DIV by 8, 3 - DIV by 1 */
 	.postDivider = kCLOCK_PllPostDiv2,
@@ -218,8 +221,10 @@ __weak void clock_init(void)
 {
 	clock_root_config_t rootCfg = {0};
 
+#if defined(CONFIG_CPU_CORTEX_M33) || !defined(CONFIG_SECOND_CORE_MCUX)
 	/* Init OSC RC 400M */
 	CLOCK_OSC_EnableOscRc400M();
+#endif
 
 #if CONFIG_CPU_CORTEX_M7
 	/* Switch both core to OscRC400M first */
@@ -241,6 +246,7 @@ __weak void clock_init(void)
 	PMU_EnableFBB(ANADIG_PMU, true);
 #endif
 
+#if defined(CONFIG_CPU_CORTEX_M33) || !defined(CONFIG_SECOND_CORE_MCUX)
 	/* Config CLK_1M */
 	CLOCK_OSC_Set1MHzOutputBehavior(kCLOCK_1MHzOutEnableFreeRunning1Mhz);
 
@@ -297,6 +303,7 @@ __weak void clock_init(void)
 	CLOCK_SetPllBypass(kCLOCK_PllAudio, true);
 	/* DeInit Audio Pll. */
 	CLOCK_DeinitAudioPll();
+#endif /* CONFIG_CPU_CORTEX_M33 || !CONFIG_SECOND_CORE_MCUX */
 
 #if defined(CONFIG_CPU_CORTEX_M7)
 	/* Module clock root configurations. */
@@ -313,6 +320,7 @@ __weak void clock_init(void)
 	CLOCK_SetRootClock(kCLOCK_Root_M33, &rootCfg);
 #endif
 
+#if defined(CONFIG_CPU_CORTEX_M33) || !defined(CONFIG_SECOND_CORE_MCUX)
 	/* Configure BUS_AON using SYS_PLL2_CLK */
 	rootCfg.mux = kCLOCK_BUS_AON_ClockRoot_MuxSysPll2Out;
 	rootCfg.div = 4;
@@ -332,6 +340,7 @@ __weak void clock_init(void)
 	rootCfg.mux = kCLOCK_SWO_TRACE_ClockRoot_MuxSysPll3Div2;
 	rootCfg.div = 3;
 	CLOCK_SetRootClock(kCLOCK_Root_Swo_Trace, &rootCfg);
+#endif /* CONFIG_CPU_CORTEX_M33 || !CONFIG_SECOND_CORE_MCUX */
 
 #if CONFIG_CPU_CORTEX_M33
 	/* Configure M33_SYSTICK using OSC_24M */
