@@ -29,6 +29,46 @@
 #define SLOT14_PARTITION	slot14_partition
 #define SLOT15_PARTITION	slot15_partition
 
+/*
+ * Number of slots to scan when reverse mapping a flash area ID to a slot.
+ * The bound is derived at compile time from the partitions that actually
+ * exist (and the bootloader mode), so the lookup loop only iterates over
+ * slots that dfu_boot_get_flash_area_id() can return a valid ID for.
+ */
+#if defined(CONFIG_MCUBOOT_BOOTLOADER_MODE_FIRMWARE_UPDATER)
+#define DFU_BOOT_NUM_SLOTS	2
+#elif PARTITION_EXISTS(SLOT15_PARTITION)
+#define DFU_BOOT_NUM_SLOTS	16
+#elif PARTITION_EXISTS(SLOT14_PARTITION)
+#define DFU_BOOT_NUM_SLOTS	15
+#elif PARTITION_EXISTS(SLOT13_PARTITION)
+#define DFU_BOOT_NUM_SLOTS	14
+#elif PARTITION_EXISTS(SLOT12_PARTITION)
+#define DFU_BOOT_NUM_SLOTS	13
+#elif PARTITION_EXISTS(SLOT11_PARTITION)
+#define DFU_BOOT_NUM_SLOTS	12
+#elif PARTITION_EXISTS(SLOT10_PARTITION)
+#define DFU_BOOT_NUM_SLOTS	11
+#elif PARTITION_EXISTS(SLOT9_PARTITION)
+#define DFU_BOOT_NUM_SLOTS	10
+#elif PARTITION_EXISTS(SLOT8_PARTITION)
+#define DFU_BOOT_NUM_SLOTS	9
+#elif PARTITION_EXISTS(SLOT7_PARTITION)
+#define DFU_BOOT_NUM_SLOTS	8
+#elif PARTITION_EXISTS(SLOT6_PARTITION)
+#define DFU_BOOT_NUM_SLOTS	7
+#elif PARTITION_EXISTS(SLOT5_PARTITION)
+#define DFU_BOOT_NUM_SLOTS	6
+#elif PARTITION_EXISTS(SLOT4_PARTITION)
+#define DFU_BOOT_NUM_SLOTS	5
+#elif PARTITION_EXISTS(SLOT3_PARTITION)
+#define DFU_BOOT_NUM_SLOTS	4
+#elif PARTITION_EXISTS(SLOT2_PARTITION)
+#define DFU_BOOT_NUM_SLOTS	3
+#else
+#define DFU_BOOT_NUM_SLOTS	2
+#endif
+
 #define ERASED_VAL_32(x) (((x) << 24) | ((x) << 16) | ((x) << 8) | (x))
 
 /**
@@ -237,6 +277,23 @@ int dfu_boot_get_flash_area_id(int slot)
 	default:
 		return -EINVAL;
 	}
+}
+
+int dfu_boot_get_slot_by_area_id(int area_id)
+{
+	for (int slot = 0; slot < DFU_BOOT_NUM_SLOTS; slot++) {
+		int id = dfu_boot_get_flash_area_id(slot);
+
+		if (id < 0) {
+			continue;
+		}
+
+		if (id == area_id) {
+			return slot;
+		}
+	}
+
+	return -EINVAL;
 }
 
 int dfu_boot_read(int slot, size_t offset, void *dst, size_t len)

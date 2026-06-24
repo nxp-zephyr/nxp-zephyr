@@ -121,6 +121,15 @@ extern "C" {
 int dfu_boot_get_flash_area_id(int slot);
 
 /**
+ * @brief Get the slot number for a flash area ID
+ *
+ * @param area_id Flash area ID
+ *
+ * @return Slot number, or negative error code on failure
+ */
+int dfu_boot_get_slot_by_area_id(int area_id);
+
+/**
  * @brief Get the erased value for a slot's flash
  *
  * @param slot Slot number
