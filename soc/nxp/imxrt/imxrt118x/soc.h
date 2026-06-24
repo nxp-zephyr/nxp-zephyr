@@ -13,6 +13,9 @@
 
 #include <fsl_common.h>
 #include <fsl_gpc.h>
+#ifdef CONFIG_FLASH_MCUX_FLEXSPI_XIP
+#include <fsl_flexspi.h>
+#endif
 
 /* Add include for DTS generated information */
 #include <zephyr/devicetree.h>
@@ -36,6 +39,10 @@ extern "C" {
 
 #ifdef CONFIG_MEMC_MCUX_FLEXSPI
 uint32_t flexspi_clock_set_freq(uint32_t clock_name, uint32_t rate);
+#endif
+
+#ifdef CONFIG_FLASH_MCUX_FLEXSPI_XIP
+void flexspi_clock_root_update(FLEXSPI_Type *flexspi, uint8_t src, uint32_t divider);
 #endif
 
 #ifdef CONFIG_I2S_MCUX_SAI

@@ -104,7 +104,8 @@ set_variable_ifdef(CONFIG_LV_USE_GPU_NXP_PXP    CONFIG_MCUX_COMPONENT_driver.pxp
 set_variable_ifdef(CONFIG_GPIO_MCUX_RGPIO       CONFIG_MCUX_COMPONENT_driver.rgpio)
 set_variable_ifdef(CONFIG_I2S_MCUX_SAI          CONFIG_MCUX_COMPONENT_driver.sai)
 set_variable_ifdef(CONFIG_DAI_NXP_SAI           CONFIG_MCUX_COMPONENT_driver.sai)
-set_variable_ifdef(CONFIG_MEMC_MCUX_FLEXSPI     CONFIG_MCUX_COMPONENT_driver.flexspi)
+set_variable_ifdef(CONFIG_MEMC_MCUX_FLEXSPI      CONFIG_MCUX_COMPONENT_driver.flexspi)
+set_variable_ifdef(CONFIG_FLASH_MCUX_FLEXSPI_XIP CONFIG_MCUX_COMPONENT_driver.flexspi)
 set_variable_ifdef(CONFIG_PWM_MCUX              CONFIG_MCUX_COMPONENT_driver.pwm)
 set_variable_ifdef(CONFIG_VIDEO_MCUX_CSI        CONFIG_MCUX_COMPONENT_driver.csi)
 set_variable_ifdef(CONFIG_WDT_MCUX_IMX_WDOG     CONFIG_MCUX_COMPONENT_driver.wdog01)
@@ -379,7 +380,7 @@ if(CONFIG_SOC_MCXW727C OR CONFIG_SOC_MCXW716C OR CONFIG_SOC_MCXW70AC)
 endif()
 
 #specific operation to shared drivers
-if((DEFINED CONFIG_FLASH_MCUX_FLEXSPI_XIP) AND (DEFINED CONFIG_FLASH))
+if((DEFINED CONFIG_FLASH_MCUX_FLEXSPI_XIP) AND ((DEFINED CONFIG_FLASH) OR CONFIG_SOC_SERIES_IMXRT118X))
   zephyr_code_relocate(FILES ${MCUX_SDK_NG_DIR}/drivers/flexspi/fsl_flexspi.c
     LOCATION ${CONFIG_FLASH_MCUX_FLEXSPI_XIP_MEM}_TEXT)
 endif()

@@ -205,13 +205,19 @@ const clock_sys_pll2_config_t sysPll2Config_BOARD_BootClockRUN = {
 /* Function Name : board_flexspi_clock_safe_config
  * Description   : FLEXSPI clock source safe configuration weak function.
  *                 Called before clock source configuration.
- * Note          : Users need override this function to change FLEXSPI clock source to stable
+ * Note          : Users may override this function to change FLEXSPI clock source to a stable
  *                 source when executing code on FLEXSPI memory(XIP). If XIP, the function
- *                 should runs in RAM and move the FLEXSPI clock source to a stable clock
+ *                 should run in RAM and move the FLEXSPI clock source to a stable clock
  *                 to avoid instruction/data fetch issue during clock updating.
  */
 __attribute__((weak)) void board_flexspi_clock_safe_config(void)
 {
+#if defined(CONFIG_FLASH_MCUX_FLEXSPI_XIP)
+	/* Move FLEXSPI clock source to OSC_RC_24M to avoid instruction/data fetch
+	 * issue in XIP when updating PLL.
+	 */
+	flexspi_clock_root_update(FLEXSPI1, kCLOCK_FLEXSPI1_ClockRoot_MuxOscRc24M, 1U);
+#endif
 }
 
 /**
@@ -627,6 +633,13 @@ __weak void clock_init(void)
 	rootCfg.mux = kCLOCK_FLEXSPI1_ClockRoot_MuxSysPll3Pfd0;
 	rootCfg.div = 3;
 	CLOCK_SetRootClock(kCLOCK_Root_Flexspi1, &rootCfg);
+#elif defined(CONFIG_FLASH_MCUX_FLEXSPI_XIP) && \
+	(defined(CONFIG_CPU_CORTEX_M33) || !defined(CONFIG_SECOND_CORE_MCUX))
+	/* Update the FLEXSPI1 using SYS_PLL3_PFD0_CLK safely when doing XIP.
+	 * This function executes in RAM and shall not be called from the secondary core
+	 * in a multicore setup.
+	 */
+	flexspi_clock_root_update(FLEXSPI1, kCLOCK_FLEXSPI1_ClockRoot_MuxSysPll3Pfd0, 3U);
 #endif
 
 #if !(DT_NODE_HAS_COMPAT(DT_CHOSEN(zephyr_flash_controller), nxp_imx_flexspi_nor)) &&  \
